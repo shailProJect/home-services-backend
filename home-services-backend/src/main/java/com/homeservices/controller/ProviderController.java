@@ -25,10 +25,7 @@ public class ProviderController {
     private final ProviderManagementService providerManagementService;
     private final SecurityUtil securityUtil;
 
-    /**
-     * POST /provider/services
-     * Add a new service offered by the provider.
-     */
+    /** POST /provider/services — Add a new service */
     @PostMapping("/services")
     public ResponseEntity<ApiResponse<ProviderServiceResponse>> addService(
             @Valid @RequestBody ProviderServiceRequest request) {
@@ -38,10 +35,7 @@ public class ProviderController {
                 .body(ApiResponse.success(response, "Service added successfully"));
     }
 
-    /**
-     * GET /provider/services
-     * Get all services for the authenticated provider.
-     */
+    /** GET /provider/services — Get all services for the authenticated provider */
     @GetMapping("/services")
     public ResponseEntity<ApiResponse<List<ProviderServiceResponse>>> getMyServices() {
         List<ProviderServiceResponse> services =
@@ -50,9 +44,19 @@ public class ProviderController {
     }
 
     /**
-     * POST /provider/availability
-     * Add an availability slot.
+     * PUT /provider/services/{id} — Edit an existing service
+     * Allows updating categoryId, serviceName, price, and durationMinutes.
      */
+    @PutMapping("/services/{id}")
+    public ResponseEntity<ApiResponse<ProviderServiceResponse>> updateService(
+            @PathVariable UUID id,
+            @Valid @RequestBody ProviderServiceRequest request) {
+        ProviderServiceResponse response =
+                providerManagementService.updateService(securityUtil.getCurrentUserId(), id, request);
+        return ResponseEntity.ok(ApiResponse.success(response, "Service updated successfully"));
+    }
+
+    /** POST /provider/availability — Add an availability slot */
     @PostMapping("/availability")
     public ResponseEntity<ApiResponse<Void>> addAvailability(
             @Valid @RequestBody AvailabilityRequest request) {
@@ -61,10 +65,7 @@ public class ProviderController {
                 .body(ApiResponse.success(null, "Availability slot added successfully"));
     }
 
-    /**
-     * GET /provider/bookings
-     * Get all bookings for the authenticated provider.
-     */
+    /** GET /provider/bookings — Get all bookings for the authenticated provider */
     @GetMapping("/bookings")
     public ResponseEntity<ApiResponse<List<BookingResponse>>> getMyBookings() {
         List<BookingResponse> bookings =
@@ -72,10 +73,7 @@ public class ProviderController {
         return ResponseEntity.ok(ApiResponse.success(bookings));
     }
 
-    /**
-     * PUT /provider/bookings/{id}/status
-     * Accept, reject, or complete a booking.
-     */
+    /** PUT /provider/bookings/{id}/status — Accept, reject, or complete a booking */
     @PutMapping("/bookings/{id}/status")
     public ResponseEntity<ApiResponse<BookingResponse>> updateBookingStatus(
             @PathVariable UUID id,

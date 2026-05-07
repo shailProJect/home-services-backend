@@ -39,4 +39,6 @@ public interface ProviderRepository extends JpaRepository<Provider, UUID> {
     List<Provider> findNearbyProviders(@Param("lat") double lat,
                                        @Param("lng") double lng,
                                        @Param("radius") double radius);
+    
+    List<Provider> findTop5ByVerifiedTrueAndActiveTrue();
 }
