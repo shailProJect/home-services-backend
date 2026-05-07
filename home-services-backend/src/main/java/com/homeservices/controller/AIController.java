@@ -1,20 +1,21 @@
 package com.homeservices.controller;
 
-import org.springframework.web.bind.annotation.*;
+import com.homeservices.dto.request.ChatRequest;
+import com.homeservices.dto.response.AIChatResponse;
 import com.homeservices.service.GrokAIService;
+import lombok.RequiredArgsConstructor;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("/chat")
+@RequestMapping("/user/chat")
+@RequiredArgsConstructor
 public class AIController {
 
-  private final GrokAIService service;
+    private final GrokAIService grokAIService;
 
-  public AIController(GrokAIService service) {
-      this.service = service;
-  }
+    @PostMapping("/ask")
+    public AIChatResponse ask(@RequestBody ChatRequest request) {
 
-  @GetMapping("/ask")
-  public String ask(@RequestParam String q) {
-      return service.ask(q);
-  }
+        return grokAIService.ask(request.getMessage());
+    }
 }

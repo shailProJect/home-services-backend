@@ -36,7 +36,7 @@ public class ProviderManagementService {
         Provider provider = getProviderByUserId(userId);
 
         ServiceCategory category = serviceCategoryRepository.findById(request.getCategoryId())
-                .orElseThrow(() -> new ResourceNotFoundException("Category not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Category not found with id: " + request.getCategoryId()));
 
         ProviderService ps = ProviderService.builder()
                 .provider(provider)
@@ -45,6 +45,34 @@ public class ProviderManagementService {
                 .price(request.getPrice())
                 .durationMinutes(request.getDurationMinutes())
                 .build();
+
+        providerServiceRepository.save(ps);
+        return providerMapper.toProviderServiceResponse(ps);
+    }
+
+    /**
+     * Update an existing service belonging to the authenticated provider.
+     * Only the owner of the service can edit it.
+     */
+    @Transactional
+    public ProviderServiceResponse updateService(UUID userId, UUID serviceId, ProviderServiceRequest request) {
+        Provider provider = getProviderByUserId(userId);
+
+        ProviderService ps = providerServiceRepository.findById(serviceId)
+                .orElseThrow(() -> new ResourceNotFoundException("Service not found"));
+
+        // Ensure this service belongs to the requesting provider
+        if (!ps.getProvider().getId().equals(provider.getId())) {
+            throw new BadRequestException("You do not have permission to edit this service");
+        }
+
+        ServiceCategory category = serviceCategoryRepository.findById(request.getCategoryId())
+                .orElseThrow(() -> new ResourceNotFoundException("Category not found with id: " + request.getCategoryId()));
+
+        ps.setCategory(category);
+        ps.setServiceName(request.getServiceName());
+        ps.setPrice(request.getPrice());
+        ps.setDurationMinutes(request.getDurationMinutes());
 
         providerServiceRepository.save(ps);
         return providerMapper.toProviderServiceResponse(ps);
@@ -86,7 +114,6 @@ public class ProviderManagementService {
         Booking booking = bookingRepository.findById(bookingId)
                 .orElseThrow(() -> new ResourceNotFoundException("Booking not found"));
 
-        // Ensure booking belongs to this provider
         if (!booking.getProviderService().getProvider().getId().equals(provider.getId())) {
             throw new BadRequestException("You do not have permission to update this booking");
         }
