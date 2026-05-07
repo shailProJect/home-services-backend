@@ -14,6 +14,11 @@ spring:
         format_sql: true
         dialect: org.hibernate.dialect.MySQL8Dialect
 
+  ai:
+    groq:
+      api-key: ${GROK_API_KEY}   # ✅ secure
+      base-url: https://api.groq.com/openai/v1
+
   jackson:
     serialization:
       write-dates-as-timestamps: false
