@@ -17,31 +17,46 @@ import java.util.UUID;
 @Builder
 public class User {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
-    private UUID id;
+  @Id
+  @GeneratedValue(strategy = GenerationType.UUID)
+  private UUID id;
 
-    @Column(nullable = false)
-    private String name;
+  @Column(nullable = false)
+  private String name;
 
-    @Column(nullable = false, unique = true)
-    private String email;
+  @Column(nullable = false, unique = true)
+  private String email;
 
-    @Column(nullable = false)
-    private String phone;
+  @Column(nullable = false)
+  private String phone;
 
-    @Column(nullable = false)
-    private String password;
+  @Column(nullable = false)
+  private String password;
 
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
-    private Role role;
+  @Enumerated(EnumType.STRING)
+  @Column(nullable = false)
+  private Role role;
 
-    @Column(nullable = false)
-    @Builder.Default
-    private boolean enabled = true;
+  @Column(nullable = false)
+  @Builder.Default
+  private boolean enabled = true;
 
-    @CreationTimestamp
-    @Column(updatable = false)
-    private LocalDateTime createdAt;
+  @CreationTimestamp
+  @Column(updatable = false)
+  private LocalDateTime createdAt;
+
+  @Column(nullable = false)
+  @Builder.Default
+  private boolean emailVerified = false;
+
+  private String emailOtp;
+
+  private LocalDateTime otpExpiry;
+
+  private LocalDateTime lastOtpSentAt;
+
+  @Builder.Default
+  private Integer otpRequestCount = 0;
+
+  private LocalDateTime otpCountResetAt;
 }

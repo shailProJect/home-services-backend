@@ -105,6 +105,12 @@
             <artifactId>spring-security-test</artifactId>
             <scope>test</scope>
         </dependency>
+        
+        <dependency>
+		    <groupId>com.resend</groupId>
+		    <artifactId>resend-java</artifactId>
+		    <version>3.1.0</version>
+		</dependency>
 
     </dependencies>
 
