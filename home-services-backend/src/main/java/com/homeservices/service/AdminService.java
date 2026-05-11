@@ -22,51 +22,46 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class AdminService {
 
-    private final ProviderRepository providerRepository;
-    private final UserRepository userRepository;
-    private final BookingRepository bookingRepository;
-    private final ProviderMapper providerMapper;
-    private final BookingMapper bookingMapper;
+  private final ProviderRepository providerRepository;
+  private final UserRepository userRepository;
+  private final BookingRepository bookingRepository;
+  private final ProviderMapper providerMapper;
+  private final BookingMapper bookingMapper;
 
-    public List<ProviderResponse> getAllProviders() {
-        return providerRepository.findAll()
-                .stream()
-                .map(providerMapper::toProviderResponse)
-                .toList();
-    }
+  public List<ProviderResponse> getAllProviders() {
+    return providerRepository.findAll().stream().map(providerMapper::toProviderResponse).toList();
+  }
 
-    @Transactional
-    public ProviderResponse approveProvider(UUID providerId) {
-        Provider provider = providerRepository.findById(providerId)
-                .orElseThrow(() -> new ResourceNotFoundException("Provider not found"));
-        provider.setVerified(true);
-        providerRepository.save(provider);
-        return providerMapper.toProviderResponse(provider);
-    }
+  @Transactional
+  public ProviderResponse approveProvider(UUID providerId) {
+    Provider provider = providerRepository.findById(providerId)
+        .orElseThrow(() -> new ResourceNotFoundException("Provider not found"));
+    provider.setVerified(true);
+    providerRepository.save(provider);
+    return providerMapper.toProviderResponse(provider);
+  }
 
-    public List<UserResponse> getAllUsers() {
-        return userRepository.findAll()
-                .stream()
-                .map(this::toUserResponse)
-                .toList();
-    }
+  @Transactional
+  public ProviderResponse toggleProviderActive(UUID providerId, boolean active) {
+    Provider provider = providerRepository.findById(providerId)
+        .orElseThrow(() -> new ResourceNotFoundException("Provider not found"));
+    provider.setActive(active);
+    providerRepository.save(provider);
+    return providerMapper.toProviderResponse(provider);
+  }
 
-    public List<BookingResponse> getAllBookings() {
-        return bookingRepository.findAll()
-                .stream()
-                .map(bookingMapper::toBookingResponse)
-                .toList();
-    }
+  public List<UserResponse> getAllUsers() {
+    return userRepository.findAll().stream().map(this::toUserResponse).toList();
+  }
 
-    private UserResponse toUserResponse(User user) {
-        return UserResponse.builder()
-                .id(user.getId())
-                .name(user.getName())
-                .email(user.getEmail())
-                .phone(user.getPhone())
-                .role(user.getRole())
-                .enabled(user.isEnabled())
-                .createdAt(user.getCreatedAt())
-                .build();
-    }
+  public List<BookingResponse> getAllBookings() {
+    return bookingRepository.findAll().stream().map(bookingMapper::toBookingResponse).toList();
+  }
+
+  private UserResponse toUserResponse(User user) {
+    return UserResponse.builder().id(user.getId()).name(user.getName()).email(user.getEmail())
+        .phone(user.getPhone()).role(user.getRole()).enabled(user.isEnabled())
+        .createdAt(user.getCreatedAt()).phoneVerified(user.isPhoneVerified())
+        .emailVerified(user.isEmailVerified()).address(user.getAddress()).build();
+  }
 }

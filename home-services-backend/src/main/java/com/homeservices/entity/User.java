@@ -59,4 +59,15 @@ public class User {
   private Integer otpRequestCount = 0;
 
   private LocalDateTime otpCountResetAt;
+
+  // ── Phone verification ────────────────────────────────────────────────────
+  @Column(nullable = false)
+  @Builder.Default
+  private boolean phoneVerified = false;
+
+  private String phoneOtp;
+
+  private LocalDateTime phoneOtpExpiry;
+
+  private String address;
 }

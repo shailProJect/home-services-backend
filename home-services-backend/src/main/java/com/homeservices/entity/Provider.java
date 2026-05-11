@@ -40,4 +40,8 @@ public class Provider {
 
     @Builder.Default
     private Double rating = 0.0;
+    
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "category_id")
+    private ServiceCategory category;
 }

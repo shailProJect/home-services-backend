@@ -20,4 +20,6 @@ public class ProviderResponse {
     private boolean verified;
     private boolean active;
     private Double rating;
+    private UUID categoryId;
+    private String categoryName;
 }
