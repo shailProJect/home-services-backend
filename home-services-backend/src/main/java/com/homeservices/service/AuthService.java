@@ -17,10 +17,13 @@ import com.homeservices.dto.request.RefreshTokenRequest;
 import com.homeservices.dto.request.RegisterRequest;
 import com.homeservices.dto.response.AuthResponse;
 import com.homeservices.entity.Provider;
+import com.homeservices.entity.ServiceCategory;
 import com.homeservices.entity.User;
 import com.homeservices.entity.enums.Role;
 import com.homeservices.exception.BadRequestException;
+import com.homeservices.exception.ResourceNotFoundException;
 import com.homeservices.repository.ProviderRepository;
+import com.homeservices.repository.ServiceCategoryRepository;
 import com.homeservices.repository.UserRepository;
 import com.homeservices.security.JwtService;
 import com.resend.core.exception.ResendException;
@@ -44,6 +47,8 @@ public class AuthService {
   private final UserDetailsService userDetailsService;
 
   private final EmailService emailService;
+
+  private final ServiceCategoryRepository serviceCategoryRepository;
 
   // ─────────────────────────────────────────
   // REGISTER
@@ -92,9 +97,28 @@ public class AuthService {
     // AUTO CREATE PROVIDER
     if (request.getRole() == Role.PROVIDER) {
 
+      ServiceCategory category = serviceCategoryRepository.findByName(request.getServiceCategory())
+          .orElseThrow(() -> new ResourceNotFoundException("Service category not found"));
+
       Provider provider = Provider.builder()
 
           .user(user)
+
+          .experienceYears(request.getYearsOfExperience())
+
+          .serviceArea(request.getServiceArea())
+
+          .latitude(request.getLatitude())
+
+          .longitude(request.getLongitude())
+
+          .category(category)
+
+          .verified(false)
+
+          .active(true)
+
+          .rating(0.0)
 
           .build();
 

@@ -2,6 +2,9 @@ package com.homeservices.controller;
 
 import com.homeservices.dto.request.BookingRequest;
 import com.homeservices.dto.request.ReviewRequest;
+import com.homeservices.dto.request.SendPhoneOtpRequest;
+import com.homeservices.dto.request.UpdateProfileRequest;
+import com.homeservices.dto.request.VerifyPhoneRequest;
 import com.homeservices.dto.response.*;
 import com.homeservices.service.UserService;
 import com.homeservices.util.SecurityUtil;
@@ -18,64 +21,97 @@ import java.util.List;
 @RequiredArgsConstructor
 public class UserController {
 
-    private final UserService userService;
-    private final SecurityUtil securityUtil;
+  private final UserService userService;
+  private final SecurityUtil securityUtil;
 
-    /**
-     * GET /user/providers?category=ELECTRICIAN
-     * Search for active provider services by category.
-     */
-    @GetMapping("/providers")
-    public ResponseEntity<ApiResponse<List<ProviderServiceResponse>>> searchByCategory(
-            @RequestParam String category) {
-        List<ProviderServiceResponse> result = userService.searchByCategory(category);
-        return ResponseEntity.ok(ApiResponse.success(result));
-    }
+  /**
+   * GET /user/profile — Get current user's profile
+   */
+  @GetMapping("/profile")
+  public ResponseEntity<ApiResponse<UserResponse>> getProfile() {
+    UserResponse response = userService.getProfile(securityUtil.getCurrentUserId());
+    return ResponseEntity.ok(ApiResponse.success(response));
+  }
 
-    /**
-     * GET /user/providers/nearby?lat=&lng=&radius=5
-     * Find nearby providers using Haversine formula within given km radius.
-     */
-    @GetMapping("/providers/nearby")
-    public ResponseEntity<ApiResponse<List<ProviderResponse>>> findNearby(
-            @RequestParam double lat,
-            @RequestParam double lng,
-            @RequestParam(defaultValue = "5") double radius) {
-        List<ProviderResponse> result = userService.findNearbyProviders(lat, lng, radius);
-        return ResponseEntity.ok(ApiResponse.success(result));
-    }
+  /**
+   * PUT /user/profile — Update current user's name and address
+   */
+  @PutMapping("/profile")
+  public ResponseEntity<ApiResponse<UserResponse>> updateProfile(
+      @RequestBody UpdateProfileRequest request) {
+    UserResponse response = userService.updateProfile(securityUtil.getCurrentUserId(), request);
+    return ResponseEntity.ok(ApiResponse.success(response, "Profile updated successfully"));
+  }
 
-    /**
-     * POST /user/bookings
-     * Create a new booking.
-     */
-    @PostMapping("/bookings")
-    public ResponseEntity<ApiResponse<BookingResponse>> createBooking(
-            @Valid @RequestBody BookingRequest request) {
-        BookingResponse response = userService.createBooking(securityUtil.getCurrentUserId(), request);
-        return ResponseEntity.status(HttpStatus.CREATED)
-                .body(ApiResponse.success(response, "Booking created successfully"));
-    }
+  /**
+   * POST /user/phone/send-otp — Send OTP to user's phone for verification
+   */
+  @PostMapping("/phone/send-otp")
+  public ResponseEntity<ApiResponse<String>> sendPhoneOtp(
+      @RequestBody SendPhoneOtpRequest request) {
+    String otp = userService.sendPhoneOtp(securityUtil.getCurrentUserId(), request.getPhone());
+    return ResponseEntity.ok(ApiResponse.success(otp, "OTP sent to phone"));
+  }
 
-    /**
-     * GET /user/bookings
-     * Get the current user's bookings.
-     */
-    @GetMapping("/bookings")
-    public ResponseEntity<ApiResponse<List<BookingResponse>>> getMyBookings() {
-        List<BookingResponse> bookings = userService.getMyBookings(securityUtil.getCurrentUserId());
-        return ResponseEntity.ok(ApiResponse.success(bookings));
-    }
+  /**
+   * POST /user/phone/verify — Verify phone OTP
+   */
+  @PostMapping("/phone/verify")
+  public ResponseEntity<ApiResponse<UserResponse>> verifyPhone(
+      @RequestBody VerifyPhoneRequest request) {
+    UserResponse response = userService.verifyPhone(securityUtil.getCurrentUserId(), request);
+    return ResponseEntity.ok(ApiResponse.success(response, "Phone verified successfully"));
+  }
 
-    /**
-     * POST /user/reviews
-     * Submit a review for a provider.
-     */
-    @PostMapping("/reviews")
-    public ResponseEntity<ApiResponse<ReviewResponse>> addReview(
-            @Valid @RequestBody ReviewRequest request) {
-        ReviewResponse response = userService.addReview(securityUtil.getCurrentUserId(), request);
-        return ResponseEntity.status(HttpStatus.CREATED)
-                .body(ApiResponse.success(response, "Review submitted successfully"));
-    }
+  /**
+   * GET /user/providers?category=ELECTRICIAN Search for active provider services by category.
+   */
+  @GetMapping("/providers")
+  public ResponseEntity<ApiResponse<List<ProviderServiceResponse>>> searchByCategory(
+      @RequestParam String category) {
+    List<ProviderServiceResponse> result = userService.searchByCategory(category);
+    return ResponseEntity.ok(ApiResponse.success(result));
+  }
+
+  /**
+   * GET /user/providers/nearby?lat=&lng=&radius=5 Find nearby providers using Haversine formula
+   * within given km radius.
+   */
+  @GetMapping("/providers/nearby")
+  public ResponseEntity<ApiResponse<List<ProviderResponse>>> findNearby(@RequestParam double lat,
+      @RequestParam double lng, @RequestParam(defaultValue = "5") double radius) {
+    List<ProviderResponse> result = userService.findNearbyProviders(lat, lng, radius);
+    return ResponseEntity.ok(ApiResponse.success(result));
+  }
+
+  /**
+   * POST /user/bookings Create a new booking.
+   */
+  @PostMapping("/bookings")
+  public ResponseEntity<ApiResponse<BookingResponse>> createBooking(
+      @Valid @RequestBody BookingRequest request) {
+    BookingResponse response = userService.createBooking(securityUtil.getCurrentUserId(), request);
+    return ResponseEntity.status(HttpStatus.CREATED)
+        .body(ApiResponse.success(response, "Booking created successfully"));
+  }
+
+  /**
+   * GET /user/bookings Get the current user's bookings.
+   */
+  @GetMapping("/bookings")
+  public ResponseEntity<ApiResponse<List<BookingResponse>>> getMyBookings() {
+    List<BookingResponse> bookings = userService.getMyBookings(securityUtil.getCurrentUserId());
+    return ResponseEntity.ok(ApiResponse.success(bookings));
+  }
+
+  /**
+   * POST /user/reviews Submit a review for a provider.
+   */
+  @PostMapping("/reviews")
+  public ResponseEntity<ApiResponse<ReviewResponse>> addReview(
+      @Valid @RequestBody ReviewRequest request) {
+    ReviewResponse response = userService.addReview(securityUtil.getCurrentUserId(), request);
+    return ResponseEntity.status(HttpStatus.CREATED)
+        .body(ApiResponse.success(response, "Review submitted successfully"));
+  }
 }
