@@ -26,6 +26,7 @@ import com.homeservices.repository.ProviderRepository;
 import com.homeservices.repository.ServiceCategoryRepository;
 import com.homeservices.repository.UserRepository;
 import com.homeservices.security.JwtService;
+import com.homeservices.service.FirebaseService.FirebasePhoneAuthResult;
 import com.resend.core.exception.ResendException;
 
 import lombok.RequiredArgsConstructor;
@@ -49,6 +50,8 @@ public class AuthService {
   private final EmailService emailService;
 
   private final ServiceCategoryRepository serviceCategoryRepository;
+
+  private final FirebaseService firebaseService;
 
   // ─────────────────────────────────────────
   // REGISTER
@@ -327,5 +330,63 @@ public class AuthService {
 
     // SEND EMAIL
     emailService.sendOtpEmail(user.getEmail(), otp);
+  }
+
+  // ─────────────────────────────────────────
+  // LOGIN WITH FIREBASE PHONE TOKEN
+  // ─────────────────────────────────────────
+
+  /**
+   * Authenticates a user using a Firebase Phone Auth ID token.
+   *
+   * Flow:
+   * 1. Verify the Firebase token → get (uid, phoneNumber).
+   * 2. Look up the user by firebaseUid, then fall back to phoneNumber.
+   * 3. If no user exists yet, throw 404 (require prior registration).
+   * 4. Link the firebaseUid to the user if not already linked.
+   * 5. Mark phone as verified and issue the app's own JWT pair.
+   */
+  @Transactional
+  public AuthResponse loginWithPhone(String firebaseIdToken) {
+
+    // ── 1. Verify Firebase token ──────────────────────────────────────────
+    FirebasePhoneAuthResult result;
+    try {
+      result = firebaseService.verifyPhoneToken(firebaseIdToken);
+    } catch (Exception e) {
+      throw new BadRequestException("Invalid or expired Firebase token: " + e.getMessage());
+    }
+
+    String uid = result.uid();
+    String phoneNumber = result.phoneNumber();
+
+    // ── 2. Find user: prefer firebaseUid lookup, fall back to phone ───────
+    User user = userRepository.findByFirebaseUid(uid)
+        .or(() -> userRepository.findByPhone(phoneNumber))
+        .orElseThrow(() -> new BadRequestException(
+            "No account found for this phone number. Please register first."));
+
+    // ── 3. Link Firebase UID if not yet stored ────────────────────────────
+    if (user.getFirebaseUid() == null) {
+      user.setFirebaseUid(uid);
+    }
+
+    // ── 4. Mark phone verified ────────────────────────────────────────────
+    if (!user.isPhoneVerified()) {
+      user.setPhoneVerified(true);
+    }
+
+    userRepository.save(user);
+
+    // ── 5. Issue JWT pair ─────────────────────────────────────────────────
+    String accessToken = jwtService.generateToken(user.getEmail());
+    String refreshToken = jwtService.generateRefreshToken(user.getEmail());
+
+    return AuthResponse.builder()
+        .accessToken(accessToken)
+        .refreshToken(refreshToken)
+        .userId(user.getId())
+        .role(user.getRole())
+        .build();
   }
 }

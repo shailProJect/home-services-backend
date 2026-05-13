@@ -4,6 +4,7 @@ import com.homeservices.dto.request.AvailabilityRequest;
 import com.homeservices.dto.request.BookingStatusRequest;
 import com.homeservices.dto.request.ProviderServiceRequest;
 import com.homeservices.dto.response.BookingResponse;
+import com.homeservices.dto.response.ProviderDetailResponse;
 import com.homeservices.dto.response.ProviderResponse;
 import com.homeservices.dto.response.ProviderServiceResponse;
 import com.homeservices.entity.*;
@@ -14,9 +15,15 @@ import com.homeservices.mapper.BookingMapper;
 import com.homeservices.mapper.ProviderMapper;
 import com.homeservices.repository.*;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.List;
 import java.util.UUID;
 
@@ -31,6 +38,7 @@ public class ProviderManagementService {
   private final ProviderAvailabilityRepository availabilityRepository;
   private final ProviderMapper providerMapper;
   private final BookingMapper bookingMapper;
+  private final CloudinaryService cloudinaryService;
 
   @Transactional
   public ProviderServiceResponse addService(UUID userId, ProviderServiceRequest request) {
@@ -104,6 +112,33 @@ public class ProviderManagementService {
     return providerMapper.toProviderResponse(provider);
   }
 
+  /** Update provider profile including shop name and address */
+  @Transactional
+  public ProviderResponse updateProviderProfile(UUID userId,
+      com.homeservices.dto.request.ProviderProfileRequest request) {
+    Provider provider = getProviderByUserId(userId);
+    if (request.getExperienceYears() != null) {
+      provider.setExperienceYears(request.getExperienceYears());
+    }
+    if (request.getServiceArea() != null && !request.getServiceArea().isBlank()) {
+      provider.setServiceArea(request.getServiceArea());
+    }
+    if (request.getLatitude() != null) {
+      provider.setLatitude(request.getLatitude());
+    }
+    if (request.getLongitude() != null) {
+      provider.setLongitude(request.getLongitude());
+    }
+    if (request.getShopName() != null) {
+      provider.setShopName(request.getShopName());
+    }
+    if (request.getShopAddress() != null) {
+      provider.setShopAddress(request.getShopAddress());
+    }
+    providerRepository.save(provider);
+    return providerMapper.toProviderResponse(provider);
+  }
+
   @Transactional
   public void addAvailability(UUID userId, AvailabilityRequest request) {
     Provider provider = getProviderByUserId(userId);
@@ -147,5 +182,58 @@ public class ProviderManagementService {
   private Provider getProviderByUserId(UUID userId) {
     return providerRepository.findByUserId(userId)
         .orElseThrow(() -> new ResourceNotFoundException("Provider profile not found"));
+  }
+
+  // ── Document upload ───────────────────────────────────────────────────────
+
+  /**
+   * Saves up to three verification documents to disk and stores their URL paths on the Provider
+   * entity. The admin can then view these via GET /admin/providers/{id}.
+   *
+   * Files are stored at: {upload.dir}/provider-docs/{providerId}/{docType}_{originalFilename} The
+   * URL saved to DB is the relative path which can be served as a static resource.
+   */
+  @Transactional
+  public ProviderDetailResponse uploadDocuments(UUID userId, MultipartFile govtId,
+      MultipartFile businessCertificate, MultipartFile addressProof) {
+
+    Provider provider = getProviderByUserId(userId);
+
+    try {
+
+      if (govtId != null && !govtId.isEmpty()) {
+        String govtIdPublicId =
+            cloudinaryService.uploadSecureDocument(govtId, "provider-documents/govt-id");
+
+        provider.setGovtIdDocumentUrl(govtIdPublicId);
+      }
+
+      if (businessCertificate != null && !businessCertificate.isEmpty()) {
+        String businessDocId = cloudinaryService.uploadSecureDocument(businessCertificate,
+            "provider-documents/business");
+
+        provider.setBusinessCertificateUrl(businessDocId);
+      }
+
+      if (addressProof != null && !addressProof.isEmpty()) {
+        String addressDocId =
+            cloudinaryService.uploadSecureDocument(addressProof, "provider-documents/address");
+
+        provider.setAddressProofUrl(addressDocId);
+      }
+
+    } catch (Exception e) {
+      throw new BadRequestException("Secure upload failed: " + e.getMessage());
+    }
+
+    providerRepository.save(provider);
+
+    User u = provider.getUser();
+
+    return ProviderDetailResponse.builder().providerId(provider.getId()).userId(u.getId())
+        .name(u.getName()).email(u.getEmail()).phone(u.getPhone())
+        .govtIdDocumentUrl(provider.getGovtIdDocumentUrl())
+        .businessCertificateUrl(provider.getBusinessCertificateUrl())
+        .addressProofUrl(provider.getAddressProofUrl()).verified(provider.isVerified()).build();
   }
 }

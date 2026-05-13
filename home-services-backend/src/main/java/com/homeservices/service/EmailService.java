@@ -23,7 +23,7 @@ public class EmailService {
                 // CHANGE THIS LATER TO YOUR DOMAIN
                 // Example:
                 // .from("Apna Admi <noreply@apnaadmi.in>")
-                .from("Apna Admi <onboarding@resend.dev>")
+                .from("Apna Admi <noreply@apnaadmi.in>")
 
                 .to(to)
 

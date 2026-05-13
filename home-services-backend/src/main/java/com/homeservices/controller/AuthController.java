@@ -1,6 +1,7 @@
 package com.homeservices.controller;
 
 import com.homeservices.dto.request.LoginRequest;
+import com.homeservices.dto.request.PhoneLoginRequest;
 import com.homeservices.dto.request.RefreshTokenRequest;
 import com.homeservices.dto.request.RegisterRequest;
 import com.homeservices.dto.request.ResendOtpRequest;
@@ -64,5 +65,23 @@ public class AuthController {
     authService.resendOtp(request.getEmail());
 
     return ResponseEntity.ok(ApiResponse.success("SUCCESS", "OTP resent successfully"));
+  }
+
+  /**
+   * POST /auth/login-phone
+   *
+   * Mobile-only endpoint. After the user completes Firebase Phone Authentication
+   * (signInWithPhoneNumber), the mobile app sends the resulting Firebase ID token here.
+   * The backend verifies it with Firebase Admin SDK, looks up the matching account by
+   * phone number, and returns the app's own JWT access + refresh tokens.
+   *
+   * Request body:  { "firebaseToken": "<Firebase ID token>" }
+   * Response body: standard AuthResponse with accessToken, refreshToken, userId, role
+   */
+  @PostMapping("/login-phone")
+  public ResponseEntity<ApiResponse<AuthResponse>> loginWithPhone(
+      @Valid @RequestBody PhoneLoginRequest request) {
+    AuthResponse response = authService.loginWithPhone(request.getFirebaseToken());
+    return ResponseEntity.ok(ApiResponse.success(response, "Phone login successful"));
   }
 }

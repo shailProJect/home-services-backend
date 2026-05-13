@@ -19,7 +19,8 @@ import com.homeservices.repository.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
+import org.springframework.web.multipart.MultipartFile;
+import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
@@ -37,7 +38,7 @@ public class UserService {
   private final ProviderMapper providerMapper;
   private final BookingMapper bookingMapper;
   private final ReviewMapper reviewMapper;
-
+  private final CloudinaryService cloudinaryService;
   // ── Profile ────────────────────────────────────────────────────────────────
 
   public UserResponse getProfile(UUID userId) {
@@ -47,16 +48,48 @@ public class UserService {
   }
 
   @Transactional
-  public UserResponse updateProfile(UUID userId, UpdateProfileRequest request) {
+  public UserResponse updateProfile(UUID userId, UpdateProfileRequest request,
+      MultipartFile profilePhoto) {
+
     User user = userRepository.findById(userId)
         .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
     if (request.getName() != null && !request.getName().isBlank()) {
-      user.setName(request.getName());
+      user.setName(request.getName().trim());
     }
+
     if (request.getAddress() != null) {
       user.setAddress(request.getAddress());
     }
+
+    // Secure Profile Photo Upload
+    if (profilePhoto != null && !profilePhoto.isEmpty()) {
+
+      try {
+
+        String contentType = profilePhoto.getContentType();
+
+        if (contentType == null
+            || !(contentType.equals("image/jpeg") || contentType.equals("image/png"))) {
+          throw new BadRequestException("Only JPG and PNG profile photos are allowed");
+        }
+
+        // 500KB limit
+        if (profilePhoto.getSize() > 500 * 1024) {
+          throw new BadRequestException("Profile photo must be under 500KB");
+        }
+
+        String photoUrl = cloudinaryService.uploadProfilePhoto(profilePhoto);
+
+        user.setProfilePhoto(photoUrl);
+
+      } catch (Exception e) {
+        throw new BadRequestException("Profile photo upload failed: " + e.getMessage());
+      }
+    }
+
     userRepository.save(user);
+
     return toUserResponse(user);
   }
 
@@ -67,16 +100,21 @@ public class UserService {
     User user = userRepository.findById(userId)
         .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
-    // Generate 6-digit OTP
+    // Rate-limit: only allow a new OTP if the last one was sent > 1 min ago
+    if (user.getPhoneOtpExpiry() != null
+        && LocalDateTime.now().isBefore(user.getPhoneOtpExpiry().minusMinutes(9))) {
+      throw new BadRequestException("Please wait before requesting another OTP");
+    }
+
     String otp = String.format("%06d", ThreadLocalRandom.current().nextInt(100000, 999999));
-    user.setPhone(phone);
+    if (phone != null && !phone.isBlank()) {
+      user.setPhone(phone);
+    }
     user.setPhoneOtp(otp);
     user.setPhoneOtpExpiry(LocalDateTime.now().plusMinutes(10));
     userRepository.save(user);
-
-    // In production, integrate with SMS provider (Twilio, MSG91, etc.)
-    // For now, return OTP directly so frontend can display it (dev mode)
-    return otp;
+    // TODO: In production, send via SMS provider (MSG91 / Twilio)
+    return otp; // dev mode: returned to frontend
   }
 
   @Transactional
@@ -88,7 +126,7 @@ public class UserService {
       throw new BadRequestException("Invalid OTP");
     }
     if (user.getPhoneOtpExpiry() == null || LocalDateTime.now().isAfter(user.getPhoneOtpExpiry())) {
-      throw new BadRequestException("OTP has expired");
+      throw new BadRequestException("OTP has expired. Please request a new one.");
     }
 
     user.setPhoneVerified(true);
@@ -97,6 +135,21 @@ public class UserService {
     if (request.getPhone() != null && !request.getPhone().isBlank()) {
       user.setPhone(request.getPhone());
     }
+    userRepository.save(user);
+    return toUserResponse(user);
+  }
+
+  @Transactional
+  public UserResponse updatePhone(UUID userId, String newPhone) {
+    if (newPhone == null || newPhone.isBlank()) {
+      throw new BadRequestException("Phone number is required");
+    }
+    User user = userRepository.findById(userId)
+        .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+    user.setPhone(newPhone);
+    user.setPhoneVerified(false); // reset verification for new number
+    user.setPhoneOtp(null);
+    user.setPhoneOtpExpiry(null);
     userRepository.save(user);
     return toUserResponse(user);
   }
@@ -170,6 +223,20 @@ public class UserService {
     return reviewMapper.toReviewResponse(review);
   }
 
+  public ProviderResponse getProviderById(UUID providerId) {
+    Provider provider = providerRepository.findById(providerId)
+        .orElseThrow(() -> new ResourceNotFoundException("Provider not found"));
+    return providerMapper.toProviderResponse(provider);
+  }
+
+  public List<ReviewResponse> getProviderReviews(UUID providerId) {
+    if (!providerRepository.existsById(providerId)) {
+      throw new ResourceNotFoundException("Provider not found");
+    }
+    return reviewRepository.findByProviderId(providerId).stream()
+        .map(reviewMapper::toReviewResponse).toList();
+  }
+
   // ── Helpers ────────────────────────────────────────────────────────────────
 
   private UserResponse toUserResponse(User user) {
@@ -177,5 +244,33 @@ public class UserService {
         .phone(user.getPhone()).role(user.getRole()).enabled(user.isEnabled())
         .createdAt(user.getCreatedAt()).phoneVerified(user.isPhoneVerified())
         .emailVerified(user.isEmailVerified()).address(user.getAddress()).build();
+  }
+
+  @Transactional
+  public UserResponse uploadProfilePhoto(UUID userId, MultipartFile profilePhoto) throws IOException {
+
+    User user = userRepository.findById(userId)
+        .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
+    // Validate
+    if (profilePhoto == null || profilePhoto.isEmpty()) {
+
+      throw new RuntimeException("Profile photo is required");
+    }
+
+    // Max 500KB
+    if (profilePhoto.getSize() > 500 * 1024) {
+
+      throw new RuntimeException("Profile photo exceeds 500KB");
+    }
+
+    // Upload to Cloudinary
+    String photoUrl = cloudinaryService.uploadProfilePhoto(profilePhoto);
+
+    user.setProfilePhoto(photoUrl);
+
+    userRepository.save(user);
+
+    return toUserResponse(user);
   }
 }

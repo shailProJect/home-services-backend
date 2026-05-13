@@ -3,4 +3,8 @@ spring:
     url: jdbc:mysql://localhost:3306/homeservice?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
     username: root
     password: admin
-    driver-class-name: com.mysql.cj.jdbc.Driver
+    driver-class-name: com.mysql.cj.jdbc.Driver		
+cloudinary:
+  cloud-name: ${CLOUDANARY_NAME}
+  api-key: ${CLOUDANARY_KEY}
+  api-secret: ${CLOUDANARY_SECRET}

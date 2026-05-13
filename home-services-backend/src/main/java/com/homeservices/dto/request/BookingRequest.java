@@ -27,4 +27,6 @@ public class BookingRequest {
 
     @NotBlank(message = "Address is required")
     private String address;
+
+    private String notes;
 }
