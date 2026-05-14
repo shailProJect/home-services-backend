@@ -12,8 +12,12 @@ import java.util.UUID;
 @Repository
 public interface ReviewRepository extends JpaRepository<Review, UUID> {
 
-    List<Review> findByProviderId(UUID providerId);
+  List<Review> findByProviderId(UUID providerId);
 
-    @Query("SELECT AVG(r.rating) FROM Review r WHERE r.provider.id = :providerId")
-    Double findAverageRatingByProviderId(@Param("providerId") UUID providerId);
+  boolean existsByUserIdAndProviderId(UUID userId, UUID providerId);
+
+  List<Review> findByUserId(UUID userId);
+
+  @Query("SELECT AVG(r.rating) FROM Review r WHERE r.provider.id = :providerId")
+  Double findAverageRatingByProviderId(@Param("providerId") UUID providerId);
 }

@@ -175,6 +175,15 @@ public class UserController {
     return ResponseEntity.ok(ApiResponse.success(reviews));
   }
 
+  /**
+   * GET /user/reviews/me — Get current user's submitted reviews (to check if already reviewed).
+   */
+  @GetMapping("/reviews/me")
+  public ResponseEntity<ApiResponse<List<ReviewResponse>>> getMyReviews() {
+    List<ReviewResponse> reviews = userService.getMyReviews(securityUtil.getCurrentUserId());
+    return ResponseEntity.ok(ApiResponse.success(reviews));
+  }
+
   @PostMapping("/phone/firebase-verify")
   public ResponseEntity<?> verifyPhone(@RequestBody FirebasePhoneVerifyRequest request) {
 

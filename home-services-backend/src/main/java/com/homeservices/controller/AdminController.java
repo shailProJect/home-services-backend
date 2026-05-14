@@ -113,4 +113,26 @@ public class AdminController {
   public ResponseEntity<ApiResponse<List<BookingResponse>>> getAllBookings() {
     return ResponseEntity.ok(ApiResponse.success(adminService.getAllBookings()));
   }
+
+  // -- Feedback / Reviews ---
+
+  /** GET /admin/reviews -- All reviews platform-wide */
+//  @GetMapping("/reviews")
+//  public ResponseEntity<ApiResponse<List<com.homeservices.dto.response.ReviewResponse>>> getAllReviews() {
+//    return ResponseEntity.ok(ApiResponse.success(adminService.getAllReviews(), "Reviews fetched"));
+//  }
+
+  /** GET /admin/providers/{id}/reviews -- Reviews for a specific provider */
+//  @GetMapping("/providers/{id}/reviews")
+//  public ResponseEntity<ApiResponse<List<com.homeservices.dto.response.ReviewResponse>>> getProviderReviews(
+//      @PathVariable UUID id) {
+//    return ResponseEntity.ok(ApiResponse.success(adminService.getReviewsByProvider(id)));
+//  }
+
+  /** DELETE /admin/reviews/{id} -- Remove inappropriate review */
+//  @org.springframework.web.bind.annotation.DeleteMapping("/reviews/{id}")
+//  public ResponseEntity<ApiResponse<Void>> deleteReview(@PathVariable UUID id) {
+//    adminService.deleteReview(id);
+//    return ResponseEntity.ok(ApiResponse.success(null, "Review deleted"));
+//  }
 }

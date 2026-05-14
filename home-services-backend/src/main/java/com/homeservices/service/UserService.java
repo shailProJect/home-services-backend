@@ -210,6 +210,11 @@ public class UserService {
     Provider provider = providerRepository.findById(request.getProviderId())
         .orElseThrow(() -> new ResourceNotFoundException("Provider not found"));
 
+    // Prevent duplicate reviews
+    if (reviewRepository.existsByUserIdAndProviderId(userId, provider.getId())) {
+      throw new BadRequestException("You have already submitted a review for this provider.");
+    }
+
     Review review = Review.builder().user(user).provider(provider).rating(request.getRating())
         .comment(request.getComment()).build();
 
@@ -237,13 +242,18 @@ public class UserService {
         .map(reviewMapper::toReviewResponse).toList();
   }
 
+  public List<ReviewResponse> getMyReviews(UUID userId) {
+    return reviewRepository.findByUserId(userId).stream()
+        .map(reviewMapper::toReviewResponse).toList();
+  }
+
   // ── Helpers ────────────────────────────────────────────────────────────────
 
   private UserResponse toUserResponse(User user) {
     return UserResponse.builder().id(user.getId()).name(user.getName()).email(user.getEmail())
         .phone(user.getPhone()).role(user.getRole()).enabled(user.isEnabled())
         .createdAt(user.getCreatedAt()).phoneVerified(user.isPhoneVerified())
-        .emailVerified(user.isEmailVerified()).address(user.getAddress()).build();
+        .emailVerified(user.isEmailVerified()).address(user.getAddress()).profilePhoto(user.getProfilePhoto()).build();
   }
 
   @Transactional

@@ -46,6 +46,8 @@ public class ProviderDetailResponse {
   private String addressProofUrl;
 
   // ── Admin / verification status ───────────────────────────────────────────
+  private String profilePhotoUrl;
+
   private boolean verified;
   private boolean active;
   private String adminNotes;

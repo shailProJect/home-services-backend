@@ -40,6 +40,7 @@ public class SecurityConfig {
         .cors(cors -> cors.configurationSource(corsConfigurationSource()))
         .authorizeHttpRequests(auth -> auth.requestMatchers("/auth/**").permitAll()
             .requestMatchers("/categories/**").permitAll()
+            .requestMatchers(org.springframework.http.HttpMethod.GET, "/user/providers/*/reviews").permitAll()
             .requestMatchers("/uploads/provider-docs/**").hasRole("ADMIN")
             .requestMatchers("/admin/**")
             .hasRole("ADMIN").requestMatchers("/provider/**").hasRole("PROVIDER")

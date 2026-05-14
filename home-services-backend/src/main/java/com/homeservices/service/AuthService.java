@@ -12,6 +12,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.homeservices.dto.request.ForgotPasswordRequest;
+import com.homeservices.dto.request.ResetPasswordRequest;
 import com.homeservices.dto.request.LoginRequest;
 import com.homeservices.dto.request.RefreshTokenRequest;
 import com.homeservices.dto.request.RegisterRequest;
@@ -339,12 +341,10 @@ public class AuthService {
   /**
    * Authenticates a user using a Firebase Phone Auth ID token.
    *
-   * Flow:
-   * 1. Verify the Firebase token → get (uid, phoneNumber).
-   * 2. Look up the user by firebaseUid, then fall back to phoneNumber.
-   * 3. If no user exists yet, throw 404 (require prior registration).
-   * 4. Link the firebaseUid to the user if not already linked.
-   * 5. Mark phone as verified and issue the app's own JWT pair.
+   * Flow: 1. Verify the Firebase token → get (uid, phoneNumber). 2. Look up the user by
+   * firebaseUid, then fall back to phoneNumber. 3. If no user exists yet, throw 404 (require prior
+   * registration). 4. Link the firebaseUid to the user if not already linked. 5. Mark phone as
+   * verified and issue the app's own JWT pair.
    */
   @Transactional
   public AuthResponse loginWithPhone(String firebaseIdToken) {
@@ -361,10 +361,10 @@ public class AuthService {
     String phoneNumber = result.phoneNumber();
 
     // ── 2. Find user: prefer firebaseUid lookup, fall back to phone ───────
-    User user = userRepository.findByFirebaseUid(uid)
-        .or(() -> userRepository.findByPhone(phoneNumber))
-        .orElseThrow(() -> new BadRequestException(
-            "No account found for this phone number. Please register first."));
+    User user =
+        userRepository.findByFirebaseUid(uid).or(() -> userRepository.findByPhone(phoneNumber))
+            .orElseThrow(() -> new BadRequestException(
+                "No account found for this phone number. Please register first."));
 
     // ── 3. Link Firebase UID if not yet stored ────────────────────────────
     if (user.getFirebaseUid() == null) {
@@ -382,11 +382,60 @@ public class AuthService {
     String accessToken = jwtService.generateToken(user.getEmail());
     String refreshToken = jwtService.generateRefreshToken(user.getEmail());
 
-    return AuthResponse.builder()
-        .accessToken(accessToken)
-        .refreshToken(refreshToken)
-        .userId(user.getId())
-        .role(user.getRole())
-        .build();
+    return AuthResponse.builder().accessToken(accessToken).refreshToken(refreshToken)
+        .userId(user.getId()).role(user.getRole()).build();
+  }
+
+  // ─────────────────────────────────────────
+  // FORGOT PASSWORD — send OTP
+  // ─────────────────────────────────────────
+  @Transactional
+  public void forgotPassword(String email) throws ResendException {
+    User user = userRepository.findByEmail(email)
+        .orElseThrow(() -> new ResourceNotFoundException("No account found with this email."));
+
+    LocalDateTime now = LocalDateTime.now();
+
+    // Rate-limit: max 3 OTPs per hour
+    if (user.getOtpCountResetAt() != null && now.isBefore(user.getOtpCountResetAt())) {
+      if (user.getOtpRequestCount() != null && user.getOtpRequestCount() >= 3) {
+        throw new BadRequestException("Too many OTP requests. Please wait before trying again.");
+      }
+    } else {
+      user.setOtpRequestCount(0);
+      user.setOtpCountResetAt(now.plusHours(1));
+    }
+
+    String otp = String.valueOf(ThreadLocalRandom.current().nextInt(100000, 999999));
+    user.setEmailOtp(otp);
+    user.setOtpExpiry(now.plusMinutes(10));
+    user.setLastOtpSentAt(now);
+    user.setOtpRequestCount(user.getOtpRequestCount() + 1);
+    userRepository.save(user);
+
+    emailService.sendPasswordResetEmail(email, otp);
+  }
+
+  // ─────────────────────────────────────────
+  // RESET PASSWORD — verify OTP + set new password
+  // ─────────────────────────────────────────
+  @Transactional
+  public void resetPassword(String email, String otp, String newPassword) {
+    User user = userRepository.findByEmail(email)
+        .orElseThrow(() -> new ResourceNotFoundException("No account found with this email."));
+
+    if (user.getEmailOtp() == null || !user.getEmailOtp().equals(otp)) {
+      throw new BadRequestException("Invalid OTP.");
+    }
+
+    if (user.getOtpExpiry() == null || LocalDateTime.now().isAfter(user.getOtpExpiry())) {
+      throw new BadRequestException("OTP has expired. Please request a new one.");
+    }
+
+    user.setPassword(passwordEncoder.encode(newPassword));
+    // Invalidate the OTP after use
+    user.setEmailOtp(null);
+    user.setOtpExpiry(null);
+    userRepository.save(user);
   }
 }

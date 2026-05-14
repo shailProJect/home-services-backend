@@ -11,6 +11,7 @@ import com.homeservices.mapper.BookingMapper;
 import com.homeservices.mapper.ProviderMapper;
 import com.homeservices.repository.BookingRepository;
 import com.homeservices.repository.ProviderRepository;
+import com.homeservices.repository.ReviewRepository;
 import com.homeservices.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -28,6 +29,8 @@ public class AdminService {
   private final BookingRepository bookingRepository;
   private final ProviderMapper providerMapper;
   private final BookingMapper bookingMapper;
+  private final ReviewRepository reviewRepository;
+  private final com.homeservices.mapper.ReviewMapper reviewMapper;
 
   // ── List all providers ────────────────────────────────────────────────────
 
@@ -129,6 +132,7 @@ public class AdminService {
         .businessCertificateUrl(p.getBusinessCertificateUrl())
         .addressProofUrl(p.getAddressProofUrl())
         // status
+        .profilePhotoUrl(p.getUser().getProfilePhoto())
         .verified(p.isVerified())
         .active(p.isActive())
         .adminNotes(p.getAdminNotes())
