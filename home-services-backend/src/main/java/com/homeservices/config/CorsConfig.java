@@ -17,7 +17,7 @@ public class CorsConfig {
       public void addCorsMappings(CorsRegistry registry) {
 
         registry.addMapping("/**")
-            .allowedOrigins("http://localhost:3000", "https://home-appliance-frontent.vercel.app")
+            .allowedOrigins("http://localhost:3000", "https://home-appliance-frontent.vercel.app","https://apnaadmi.in")
             .allowedMethods("*").allowedHeaders("*");
       }
     };
