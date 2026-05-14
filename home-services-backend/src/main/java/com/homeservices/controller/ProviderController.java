@@ -5,6 +5,7 @@ import com.homeservices.dto.request.BookingStatusRequest;
 import com.homeservices.dto.request.ProviderServiceRequest;
 import com.homeservices.dto.response.ApiResponse;
 import com.homeservices.dto.response.BookingResponse;
+import com.homeservices.dto.response.ProviderDetailResponse;
 import com.homeservices.dto.response.ProviderResponse;
 import com.homeservices.dto.response.ProviderServiceResponse;
 import com.homeservices.service.ProviderManagementService;
@@ -14,6 +15,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 import java.util.UUID;
@@ -72,6 +74,15 @@ public class ProviderController {
     return ResponseEntity.ok(ApiResponse.success(response));
   }
 
+  /** PUT /provider/profile — Update provider profile (shop name, address, experience, etc.) */
+  @PutMapping("/profile")
+  public ResponseEntity<ApiResponse<ProviderResponse>> updateProfile(
+      @RequestBody com.homeservices.dto.request.ProviderProfileRequest request) {
+    ProviderResponse response =
+        providerManagementService.updateProviderProfile(securityUtil.getCurrentUserId(), request);
+    return ResponseEntity.ok(ApiResponse.success(response, "Profile updated successfully"));
+  }
+
   /** POST /provider/availability — Add an availability slot */
   @PostMapping("/availability")
   public ResponseEntity<ApiResponse<Void>> addAvailability(
@@ -96,5 +107,28 @@ public class ProviderController {
     BookingResponse response =
         providerManagementService.updateBookingStatus(securityUtil.getCurrentUserId(), id, request);
     return ResponseEntity.ok(ApiResponse.success(response, "Booking status updated"));
+  }
+
+  /**
+   * POST /provider/documents
+   *
+   * Upload verification documents so admin can review them before approving the account.
+   * Accepts multipart/form-data with up to three optional file parts:
+   *   - govtId            : Government-issued photo ID (Aadhaar, PAN, Passport …)
+   *   - businessCertificate : Business registration / GST certificate
+   *   - addressProof      : Utility bill, bank statement, or similar
+   *
+   * Files are saved to disk under uploads/provider-docs/{providerId}/
+   * and the URL paths are persisted on the Provider entity.
+   */
+  @PostMapping(value = "/documents", consumes = "multipart/form-data")
+  public ResponseEntity<ApiResponse<ProviderDetailResponse>> uploadDocuments(
+      @RequestPart(value = "govtId", required = false) MultipartFile govtId,
+      @RequestPart(value = "businessCertificate", required = false) MultipartFile businessCertificate,
+      @RequestPart(value = "addressProof", required = false) MultipartFile addressProof) {
+
+    ProviderDetailResponse response = providerManagementService.uploadDocuments(
+        securityUtil.getCurrentUserId(), govtId, businessCertificate, addressProof);
+    return ResponseEntity.ok(ApiResponse.success(response, "Documents uploaded successfully"));
   }
 }

@@ -5,6 +5,7 @@ import com.homeservices.security.CustomUserDetailsService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
@@ -38,10 +39,17 @@ public class SecurityConfig {
     http.csrf(AbstractHttpConfigurer::disable)
         .cors(cors -> cors.configurationSource(corsConfigurationSource()))
         .authorizeHttpRequests(auth -> auth.requestMatchers("/auth/**").permitAll()
-            // ✅ FIX: Allow unauthenticated access to categories so the
-            // frontend can fetch UUIDs before the provider submits the form
-            .requestMatchers("/categories/**").permitAll().requestMatchers("/admin/**")
+            .requestMatchers("/categories/**").permitAll()
+            .requestMatchers(org.springframework.http.HttpMethod.GET, "/user/providers/*/reviews").permitAll()
+            .requestMatchers("/uploads/provider-docs/**").hasRole("ADMIN")
+            .requestMatchers("/admin/**")
             .hasRole("ADMIN").requestMatchers("/provider/**").hasRole("PROVIDER")
+            .requestMatchers(HttpMethod.GET, "/user/profile").hasAnyRole("USER", "PROVIDER")
+            .requestMatchers(HttpMethod.PUT, "/user/profile").hasAnyRole("USER", "PROVIDER")
+            .requestMatchers(HttpMethod.POST, "/user/phone/send-otp").hasAnyRole("USER", "PROVIDER")
+            .requestMatchers(HttpMethod.POST, "/user/phone/verify").hasAnyRole("USER", "PROVIDER")
+            .requestMatchers(HttpMethod.PUT, "user/profile/photo").hasAnyRole("USER", "PROVIDER")
+            .requestMatchers(HttpMethod.PUT, "/user/phone").hasAnyRole("USER", "PROVIDER")
             .requestMatchers("/user/**").hasRole("USER").anyRequest().authenticated())
         .sessionManagement(
             session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))

@@ -6,12 +6,16 @@ import lombok.Data;
 @Data
 public class ProviderProfileRequest {
 
-    private Integer experienceYears;
+  private Integer experienceYears;
 
-    @NotBlank(message = "Service area is required")
-    private String serviceArea;
+  @NotBlank(message = "Service area is required")
+  private String serviceArea;
 
-    private Double latitude;
+  private Double latitude;
 
-    private Double longitude;
+  private Double longitude;
+
+  private String shopName;
+
+  private String shopAddress;
 }

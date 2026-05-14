@@ -1,9 +1,12 @@
 package com.homeservices.controller;
 
+import com.homeservices.dto.request.ForgotPasswordRequest;
 import com.homeservices.dto.request.LoginRequest;
+import com.homeservices.dto.request.PhoneLoginRequest;
 import com.homeservices.dto.request.RefreshTokenRequest;
 import com.homeservices.dto.request.RegisterRequest;
 import com.homeservices.dto.request.ResendOtpRequest;
+import com.homeservices.dto.request.ResetPasswordRequest;
 import com.homeservices.dto.response.ApiResponse;
 import com.homeservices.dto.response.AuthResponse;
 import com.homeservices.service.AuthService;
@@ -64,5 +67,53 @@ public class AuthController {
     authService.resendOtp(request.getEmail());
 
     return ResponseEntity.ok(ApiResponse.success("SUCCESS", "OTP resent successfully"));
+  }
+
+  /**
+   * POST /auth/login-phone
+   *
+   * Mobile-only endpoint. After the user completes Firebase Phone Authentication
+   * (signInWithPhoneNumber), the mobile app sends the resulting Firebase ID token here. The backend
+   * verifies it with Firebase Admin SDK, looks up the matching account by phone number, and returns
+   * the app's own JWT access + refresh tokens.
+   *
+   * Request body: { "firebaseToken": "<Firebase ID token>" } Response body: standard AuthResponse
+   * with accessToken, refreshToken, userId, role
+   */
+  @PostMapping("/login-phone")
+  public ResponseEntity<ApiResponse<AuthResponse>> loginWithPhone(
+      @Valid @RequestBody PhoneLoginRequest request) {
+    AuthResponse response = authService.loginWithPhone(request.getFirebaseToken());
+    return ResponseEntity.ok(ApiResponse.success(response, "Phone login successful"));
+  }
+
+  /**
+   * POST /auth/forgot-password Send a password-reset OTP to the user's registered email. Body: {
+   * "email": "user@example.com" }
+   */
+  @PostMapping("/forgot-password")
+  public ResponseEntity<ApiResponse<String>> forgotPassword(
+      @Valid @RequestBody ForgotPasswordRequest request) {
+    try {
+      authService.forgotPassword(request.getEmail());
+      return ResponseEntity
+          .ok(ApiResponse.success("OTP_SENT", "Password reset OTP sent to your email."));
+    } catch (com.resend.core.exception.ResendException e) {
+      e.printStackTrace();
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+          .body(ApiResponse.error("Failed to send reset email. Please try again."));
+    }
+  }
+
+  /**
+   * POST /auth/reset-password Verify OTP and set new password. Body: { "email": "...", "otp":
+   * "123456", "newPassword": "newpass123" }
+   */
+  @PostMapping("/reset-password")
+  public ResponseEntity<ApiResponse<String>> resetPassword(
+      @Valid @RequestBody ResetPasswordRequest request) {
+    authService.resetPassword(request.getEmail(), request.getOtp(), request.getNewPassword());
+    return ResponseEntity
+        .ok(ApiResponse.success("SUCCESS", "Password reset successfully. You can now login."));
   }
 }

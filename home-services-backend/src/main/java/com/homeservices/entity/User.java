@@ -70,4 +70,11 @@ public class User {
   private LocalDateTime phoneOtpExpiry;
 
   private String address;
+
+  // ── Firebase / Phone login ────────────────────────────────────────────────
+  /** Firebase UID stored after first successful phone login (used for account linking). */
+  @Column(unique = true)
+  private String firebaseUid;
+  
+  private String profilePhoto;
 }

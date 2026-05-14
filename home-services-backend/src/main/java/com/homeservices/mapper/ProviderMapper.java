@@ -17,9 +17,8 @@ public class ProviderMapper {
         .longitude(provider.getLongitude()).verified(provider.isVerified())
         .active(provider.isActive()).rating(provider.getRating())
         .categoryId(provider.getCategory() != null ? provider.getCategory().getId() : null)
-        .categoryName(
-            provider.getCategory() != null ? provider.getCategory().getName() : null)
-        .build();
+        .categoryName(provider.getCategory() != null ? provider.getCategory().getName() : null)
+        .shopName(provider.getShopName()).shopAddress(provider.getShopAddress()).build();
   }
 
   public ProviderServiceResponse toProviderServiceResponse(ProviderService ps) {
