@@ -1,0 +1,56 @@
+server:
+  port: ${PORT:8080}
+
+resend:
+  api-key: ${RESEND_API_KEY}
+
+spring:
+  profiles:
+    active: local
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.MySQL8Dialect
+
+  ai:
+    groq:
+      api-key: ${GROQ_API_KEY}
+      base-url: https://api.groq.com/openai/v1
+
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
+    time-zone: UTC
+
+jwt:
+  secret: ${JWT_SECRET}
+  expiration: 86400000
+  refresh-expiration: 604800000
+
+logging:
+  level:
+    org.springframework.security: DEBUG
+    com.homeservices: DEBUG
+
+vapid:
+  public-key: ${VAPID_PUBLIC_KEY}
+  private-key: ${VAPID_PRIVATE_KEY}
+  subject: ${VAPID_SUBJECT}
+
+msg91:
+  auth-key: ${MSG91_AUTH_KEY}
+  sender-id: ${MSG91_SENDER_ID}
+  template-id: ${MSG91_TEMPLATE_ID}
+
+cashfree:
+  app-id: ${CASHFREE_APP_ID}
+  secret-key: ${CASHFREE_SECRET_KEY}
+  api-url: ${CASHFREE_API_URL:https://api.cashfree.com/pg}
+
+app:
+  frontend-url: ${FRONTEND_URL}

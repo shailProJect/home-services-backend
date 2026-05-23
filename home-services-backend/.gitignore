@@ -1,0 +1,105 @@
+############################
+# Build output
+############################
+target/
+build/
+out/
+
+############################
+# Maven wrapper
+############################
+!.mvn/wrapper/maven-wrapper.jar
+
+############################
+# Logs
+############################
+*.log
+logs/
+
+############################
+# Runtime files
+############################
+*.pid
+*.seed
+*.pid.lock
+
+############################
+# Environment variables / secrets
+############################
+.env
+.env.*
+application-prod.properties
+application-local.properties
+application-secret.properties
+
+############################
+# Database dumps
+############################
+*.sql
+*.sqlite
+*.db
+
+############################
+# Redis
+############################
+dump.rdb
+
+############################
+# OS files
+############################
+.DS_Store
+Thumbs.db
+
+############################
+# IntelliJ IDEA
+############################
+.idea/
+*.iws
+*.iml
+*.ipr
+
+############################
+# Eclipse
+############################
+.project
+.classpath
+.settings/
+
+############################
+# VS Code
+############################
+.vscode/
+
+############################
+# NetBeans
+############################
+/nbproject/private/
+/nbbuild/
+/dist/
+/nbdist/
+/.nb-gradle/
+
+############################
+# Java compiled files
+############################
+*.class
+*.jar
+*.war
+*.ear
+
+############################
+# Node (if frontend inside backend repo)
+############################
+node_modules/
+
+############################
+# Test reports
+############################
+surefire-reports/
+failsafe-reports/
+
+############################
+# Coverage reports
+############################
+coverage/
+jacoco.exec

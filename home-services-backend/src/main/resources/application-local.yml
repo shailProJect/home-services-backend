@@ -1,0 +1,10 @@
+spring:
+  datasource:
+    url: jdbc:mysql://localhost:3306/homeservice?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
+    username: root
+    password: admin
+    driver-class-name: com.mysql.cj.jdbc.Driver		
+cloudinary:
+  cloud-name: abc
+  api-key: abc
+  api-secret: abc
