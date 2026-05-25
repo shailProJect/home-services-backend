@@ -25,8 +25,7 @@ public class CloudinaryService {
 
     Map uploadResult = cloudinary.uploader().upload(file.getBytes(),
         ObjectUtils.asMap("folder", folder, "resource_type", "auto", "public_id", randomFileName,
-            "overwrite", false, "invalidate", true, "type", "authenticated", "access_mode",
-            "authenticated"));
+            "overwrite", false, "invalidate", true, "type", "authenticated"));
 
     return uploadResult.get("public_id").toString();
   }
