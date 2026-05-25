@@ -26,4 +26,11 @@ public class SecurityUtil {
     public UUID getCurrentUserId() {
         return getCurrentUser().getId();
     }
+
+    public String getCurrentUserEmail() {
+      // TODO Auto-generated method stub
+      return getCurrentUser().getEmail();
+    }
+    
+    
 }
