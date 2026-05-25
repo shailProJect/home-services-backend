@@ -267,5 +267,5 @@ public class UserController {
       );
 
       return "SMS Sent";
-  }
+}
 }

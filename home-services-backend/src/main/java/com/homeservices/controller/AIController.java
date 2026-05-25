@@ -1,10 +1,8 @@
 package com.homeservices.controller;
 
-import com.homeservices.dto.request.ImageDiagnosisRequest;
 import com.homeservices.dto.request.VoiceChatRequest;
 import com.homeservices.dto.response.AIChatResponse;
 import com.homeservices.dto.response.ApiResponse;
-import com.homeservices.dto.response.ImageDiagnosisResponse;
 import com.homeservices.service.GrokAIService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;

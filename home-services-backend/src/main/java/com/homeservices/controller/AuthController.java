@@ -76,12 +76,4 @@ public class AuthController {
           .body(ApiResponse.error("Failed to send reset email. Please try again."));
     }
   }
-
-  @PostMapping("/reset-password")
-  public ResponseEntity<ApiResponse<String>> resetPassword(
-      @Valid @RequestBody ResetPasswordRequest request) {
-    authService.resetPassword(request.getEmail(), request.getOtp(), request.getNewPassword());
-    return ResponseEntity
-        .ok(ApiResponse.success("SUCCESS", "Password reset successfully. You can now login."));
-  }
 }

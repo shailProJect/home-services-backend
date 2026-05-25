@@ -5,6 +5,6 @@ spring:
     password: admin
     driver-class-name: com.mysql.cj.jdbc.Driver		
 cloudinary:
-  cloud-name: abc
-  api-key: abc
-  api-secret: abc
+  cloud-name: ${CLOUDANARY_NAME}
+  api-key: ${CLOUDANARY_KEY}
+  api-secret: ${CLOUDANARY_SECRET}

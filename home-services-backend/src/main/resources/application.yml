@@ -6,7 +6,7 @@ resend:
   
 spring:
   profiles:
-    active: local
+    active: prod
 
   jpa:
     hibernate:
@@ -54,5 +54,3 @@ cashfree:
 
 app:
   frontend-url: ${FRONTEND_URL:https://snowiness-revenue-outline.ngrok-free.dev}
-  
-  

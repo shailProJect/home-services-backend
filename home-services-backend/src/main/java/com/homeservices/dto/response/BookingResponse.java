@@ -50,4 +50,5 @@ public class BookingResponse {
   
   private String providerPhone;
   private String userPhone;
+
 }

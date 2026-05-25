@@ -105,6 +105,4 @@ public class Booking {
   @CreationTimestamp
   @Column(updatable = false)
   private LocalDateTime createdAt;
-  
-
 }

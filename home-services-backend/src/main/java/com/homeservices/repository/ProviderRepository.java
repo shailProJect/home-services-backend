@@ -41,5 +41,4 @@ public interface ProviderRepository extends JpaRepository<Provider, UUID> {
                                        @Param("radius") double radius);
     
     List<Provider> findTop5ByVerifiedTrueAndActiveTrue();
-    
 }
