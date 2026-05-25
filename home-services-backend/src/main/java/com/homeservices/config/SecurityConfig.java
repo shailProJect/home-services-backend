@@ -25,87 +25,88 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import java.util.List;
 
+/**
+ * SecurityConfig — phone/Firebase auth removed.
+ * Phone OTP endpoints removed from permitAll list.
+ * Cashfree webhook kept public.
+ */
 @Configuration
 @EnableWebSecurity
 @EnableMethodSecurity
 @RequiredArgsConstructor
 public class SecurityConfig {
 
-  private final JwtAuthenticationFilter jwtAuthFilter;
-  private final CustomUserDetailsService userDetailsService;
+    private final JwtAuthenticationFilter  jwtAuthFilter;
+    private final CustomUserDetailsService userDetailsService;
 
-  @Bean
-  public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-    http.csrf(AbstractHttpConfigurer::disable)
-        .cors(cors -> cors.configurationSource(corsConfigurationSource()))
-        .authorizeHttpRequests(auth -> auth
-            // ── Public ────────────────────────────────────────────────────
-            .requestMatchers("/auth/**").permitAll().requestMatchers("/categories/**").permitAll()
-            // Public: provider reviews readable by anyone
-            .requestMatchers(HttpMethod.GET, "/user/providers/*/reviews").permitAll()
-            // FIX: Cashfree webhook must be public (called server-to-server, no JWT)
-            .requestMatchers("/provider/subscription/webhook").permitAll()
+    @Bean
+    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+        http
+            .csrf(AbstractHttpConfigurer::disable)
+            .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+            .authorizeHttpRequests(auth -> auth
 
-            // ── Admin ─────────────────────────────────────────────────────
-            .requestMatchers("/admin/**").hasRole("ADMIN")
-            .requestMatchers("/uploads/provider-docs/**").hasRole("ADMIN")
+                // ── Fully public ──────────────────────────────────────────────
+                .requestMatchers("/auth/**").permitAll()
+                .requestMatchers("/categories/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/user/providers/*/reviews").permitAll()
+                // Cashfree calls this server-to-server — no JWT
+                .requestMatchers("/provider/subscription/webhook").permitAll()
 
-            // ── Provider ──────────────────────────────────────────────────
-            .requestMatchers("/provider/**").hasRole("PROVIDER")
+                // ── Admin ─────────────────────────────────────────────────────
+                .requestMatchers("/admin/**").hasRole("ADMIN")
+                .requestMatchers("/uploads/provider-docs/**").hasRole("ADMIN")
 
-            // ── USER + PROVIDER shared endpoints ──────────────────────────
-            .requestMatchers(HttpMethod.GET, "/user/profile").hasAnyRole("USER", "PROVIDER")
-            .requestMatchers(HttpMethod.PUT, "/user/profile").hasAnyRole("USER", "PROVIDER")
-            .requestMatchers(HttpMethod.PUT, "/user/profile/photo").hasAnyRole("USER", "PROVIDER")
-            .requestMatchers(HttpMethod.POST, "/user/phone/send-otp").hasAnyRole("USER", "PROVIDER")
-            .requestMatchers(HttpMethod.POST, "/user/phone/verify").hasAnyRole("USER", "PROVIDER")
-            .requestMatchers(HttpMethod.POST, "/user/phone/firebase-verify")
-            .hasAnyRole("USER", "PROVIDER").requestMatchers(HttpMethod.PUT, "/user/phone")
-            .hasAnyRole("USER", "PROVIDER").requestMatchers(HttpMethod.GET, "/user/reviews/me")
-            .hasAnyRole("USER", "PROVIDER")
+                // ── Provider ──────────────────────────────────────────────────
+                .requestMatchers("/provider/**").hasRole("PROVIDER")
 
-            // FIX: /user/chat was not in the permit list — 403 on AI chat for users
-            .requestMatchers("/user/chat/**").hasAnyRole("USER", "PROVIDER")
+                // ── Shared (USER or PROVIDER) ─────────────────────────────────
+                .requestMatchers(HttpMethod.GET,  "/user/profile").hasAnyRole("USER", "PROVIDER")
+                .requestMatchers(HttpMethod.PUT,  "/user/profile").hasAnyRole("USER", "PROVIDER")
+                .requestMatchers(HttpMethod.PUT,  "/user/profile/photo").hasAnyRole("USER", "PROVIDER")
+                .requestMatchers(HttpMethod.PUT,  "/user/phone").hasAnyRole("USER", "PROVIDER")
+                .requestMatchers(HttpMethod.GET,  "/user/reviews/me").hasAnyRole("USER", "PROVIDER")
+                .requestMatchers("/user/chat/**").hasAnyRole("USER", "PROVIDER")
 
-            // ── User-only ─────────────────────────────────────────────────
-            .requestMatchers("/user/**").hasRole("USER")
+                // ── User-only ─────────────────────────────────────────────────
+                .requestMatchers("/user/**").hasRole("USER")
 
-            .anyRequest().authenticated())
-        .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-        .authenticationProvider(authenticationProvider())
-        .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
+                .anyRequest().authenticated()
+            )
+            .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+            .authenticationProvider(authenticationProvider())
+            .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
 
-    return http.build();
-  }
+        return http.build();
+    }
 
-  @Bean
-  public AuthenticationProvider authenticationProvider() {
-    DaoAuthenticationProvider provider = new DaoAuthenticationProvider();
-    provider.setUserDetailsService(userDetailsService);
-    provider.setPasswordEncoder(passwordEncoder());
-    return provider;
-  }
+    @Bean
+    public AuthenticationProvider authenticationProvider() {
+        DaoAuthenticationProvider p = new DaoAuthenticationProvider();
+        p.setUserDetailsService(userDetailsService);
+        p.setPasswordEncoder(passwordEncoder());
+        return p;
+    }
 
-  @Bean
-  public AuthenticationManager authenticationManager(AuthenticationConfiguration config)
-      throws Exception {
-    return config.getAuthenticationManager();
-  }
+    @Bean
+    public AuthenticationManager authenticationManager(AuthenticationConfiguration cfg) throws Exception {
+        return cfg.getAuthenticationManager();
+    }
 
-  @Bean
-  public PasswordEncoder passwordEncoder() {
-    return new BCryptPasswordEncoder();
-  }
+    @Bean
+    public PasswordEncoder passwordEncoder() {
+        return new BCryptPasswordEncoder();
+    }
 
-  @Bean
-  public CorsConfigurationSource corsConfigurationSource() {
-    CorsConfiguration config = new CorsConfiguration();
-    config.setAllowedOriginPatterns(List.of("*"));
-    config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
-    config.setAllowedHeaders(List.of("*"));
-    config.setAllowCredentials(true);
-    UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-    source.registerCorsConfiguration("/**", config);
-    return source;
-  }
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration config = new CorsConfiguration();
+        config.setAllowedOriginPatterns(List.of("*"));
+        config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
+        config.setAllowedHeaders(List.of("*"));
+        config.setAllowCredentials(true);
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", config);
+        return source;
+    }
 }

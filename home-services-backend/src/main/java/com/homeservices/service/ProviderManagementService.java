@@ -43,8 +43,8 @@ public class ProviderManagementService {
   public ProviderServiceResponse addService(UUID userId, ProviderServiceRequest request) {
     Provider provider = getProviderByUserId(userId);
 
-    if (!provider.getUser().isPhoneVerified())
-      throw new BadRequestException("Please verify your phone number before adding a service");
+//    if (!provider.getUser().isPhoneVerified())
+//      throw new BadRequestException("Please verify your phone number before adding a service");
 
     ServiceCategory category =
         serviceCategoryRepository.findById(request.getCategoryId()).orElseThrow(

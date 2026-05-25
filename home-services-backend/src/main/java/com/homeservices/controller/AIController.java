@@ -50,13 +50,13 @@ public class AIController {
      * User uploads image to Cloudinary via frontend → gets URL → sends URL here.
      * AI returns diagnosis, category, and cost estimate.
      */
-    @PostMapping("/diagnose-image")
-    public ResponseEntity<ApiResponse<ImageDiagnosisResponse>> diagnoseImage(
-            @RequestBody ImageDiagnosisRequest request) {
-
-        ImageDiagnosisResponse response = grokAIService.diagnoseImage(request);
-        return ResponseEntity.ok(ApiResponse.success(response));
-    }
+//    @PostMapping("/diagnose-image")
+//    public ResponseEntity<ApiResponse<ImageDiagnosisResponse>> diagnoseImage(
+//            @RequestBody ImageDiagnosisRequest request) {
+//
+//        ImageDiagnosisResponse response = grokAIService.diagnoseImage(request);
+//        return ResponseEntity.ok(ApiResponse.success(response));
+//    }
 
     /**
      * POST /ai/estimate-cost?appliance=AC&problem=not cooling&urgent=false

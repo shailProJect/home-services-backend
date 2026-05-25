@@ -52,6 +52,7 @@ public class UserService {
   private final CloudinaryService cloudinaryService;
   private final PushSubscriptionRepository pushSubscriptionRepository;
   private final WebPushService webPushService;
+  private final SubscriptionService subscriptionService;
   // ── Profile ────────────────────────────────────────────────────────────────
 
   public UserResponse getProfile(UUID userId) {
@@ -187,9 +188,9 @@ public class UserService {
     User user = userRepository.findById(userId)
         .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
-    if (!user.isPhoneVerified()) {
-      throw new BadRequestException("Please verify your phone number before making a booking");
-    }
+//    if (!user.isPhoneVerified()) {
+//      throw new BadRequestException("Please verify your phone number before making a booking");
+//    }
 
     ProviderService providerService =
         providerServiceRepository.findById(request.getProviderServiceId())
@@ -242,6 +243,9 @@ public class UserService {
       e.printStackTrace();
     }
 
+    subscriptionService.checkAndEnforceFreeTierAfterBooking(
+        providerService.getProvider().getId());
+    
     return bookingMapper.toBookingResponse(booking);
   }
 

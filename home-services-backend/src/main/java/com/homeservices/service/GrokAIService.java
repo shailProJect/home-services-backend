@@ -1,5 +1,6 @@
 package com.homeservices.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.homeservices.dto.response.AIChatResponse;
 import com.homeservices.dto.response.ProviderSuggestion;
 import com.homeservices.entity.Provider;
@@ -108,5 +109,63 @@ public class GrokAIService {
     if (m.contains("microwave"))
       return "MICROWAVE";
     return "GENERAL_APPLIANCE";
+  }
+
+  public Map<String, Object> estimateCost(String appliance, String problem, boolean urgent) {
+
+    String prompt = """
+        You are a home appliance repair cost estimation AI.
+
+        Estimate repair cost in Indian Rupees for:
+
+        Appliance: %s
+        Problem: %s
+        Urgent Service: %s
+
+        Return JSON only in this format:
+        {
+          "estimatedMin": 0,
+          "estimatedMax": 0,
+          "visitCharge": 0,
+          "partsLikelyNeeded": [],
+          "severity": "LOW|MEDIUM|HIGH",
+          "estimatedTime": "",
+          "recommendation": ""
+        }
+        """.formatted(appliance, problem, urgent ? "YES" : "NO");
+
+    Map<String, Object> requestBody = Map.of("model", "llama-3.3-70b-versatile", "messages",
+        List.of(
+            Map.of("role", "system", "content", "You are an expert appliance repair assistant."),
+            Map.of("role", "user", "content", prompt)),
+        "temperature", 0.3);
+
+    try {
+
+      @SuppressWarnings("rawtypes")
+      Map response = webClient.post().uri("/chat/completions").bodyValue(requestBody).retrieve()
+          .bodyToMono(Map.class).timeout(Duration.ofSeconds(20)).block();
+
+      @SuppressWarnings("unchecked")
+      List<?> choices = (List<?>) response.get("choices");
+
+      @SuppressWarnings("unchecked")
+      Map<?, ?> firstChoice = (Map<?, ?>) choices.get(0);
+
+      @SuppressWarnings("unchecked")
+      Map<?, ?> message = (Map<?, ?>) firstChoice.get("message");
+
+      String aiReply = message.get("content").toString();
+
+      // Convert JSON string response into Map
+      ObjectMapper mapper = new ObjectMapper();
+
+      return mapper.readValue(aiReply, Map.class);
+
+    } catch (Exception e) {
+      log.error("Estimate Cost Error", e);
+
+      throw new RuntimeException("Unable to estimate repair cost: " + e.getMessage());
+    }
   }
 }

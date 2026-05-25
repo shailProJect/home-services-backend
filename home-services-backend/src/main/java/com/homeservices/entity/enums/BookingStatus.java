@@ -9,5 +9,7 @@ public enum BookingStatus {
     CANCELLED,         // User cancelled
     REJECTED,          // Provider rejected
     URGENT_PENDING,    // Urgent booking awaiting acceptance
-    URGENT_CONFIRMED   // Urgent booking accepted — must arrive in 30 min
+    URGENT_CONFIRMED,   // Urgent booking accepted — must arrive in 30 min
+    ARRIVED,
+    ACCEPTED
 }

@@ -142,10 +142,12 @@
     <version>1.78.1</version>
 </dependency>
 
+<!-- Source: https://mvnrepository.com/artifact/com.cashfree.pg.java/cashfree_pg -->
 <dependency>
-    <groupId>com.cashfree.pg</groupId>
-    <artifactId>cashfree-pg</artifactId>
-    <version>3.2.4</version>
+    <groupId>com.cashfree.pg.java</groupId>
+    <artifactId>cashfree_pg</artifactId>
+    <version>5.0.1</version>
+    <scope>compile</scope>
 </dependency>
     </dependencies>
 

@@ -47,4 +47,7 @@ public class BookingResponse {
   private Integer estimatedArrivalMinutes;
   private LocalDateTime acceptedAt;
   private LocalDateTime arrivedAt;
+  
+  private String providerPhone;
+  private String userPhone;
 }

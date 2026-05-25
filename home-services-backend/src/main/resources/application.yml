@@ -1,9 +1,9 @@
 server:
   port: ${PORT:8080}
-
+  
 resend:
-  api-key: ${RESEND_API_KEY}
-
+  api-key: ${EMAIL_API_KEY}
+  
 spring:
   profiles:
     active: local
@@ -19,7 +19,7 @@ spring:
 
   ai:
     groq:
-      api-key: ${GROQ_API_KEY}
+      api-key: ${GROK_API_KEY}   # ✅ secure
       base-url: https://api.groq.com/openai/v1
 
   jackson:
@@ -28,7 +28,7 @@ spring:
     time-zone: UTC
 
 jwt:
-  secret: ${JWT_SECRET}
+  secret: ${JWT_SECRET:5367566B59703373367639792F423F4528482B4D6251655468576D5A71347437}
   expiration: 86400000
   refresh-expiration: 604800000
 
@@ -36,21 +36,23 @@ logging:
   level:
     org.springframework.security: DEBUG
     com.homeservices: DEBUG
-
+    
 vapid:
-  public-key: ${VAPID_PUBLIC_KEY}
-  private-key: ${VAPID_PRIVATE_KEY}
-  subject: ${VAPID_SUBJECT}
-
+  public-key: ${PUSH_PUBLIC_KEY}
+  private-key: ${PUSH_PRIVATE_KEY}
+  subject: ${PUSH_SUBJECT}
+  
 msg91:
-  auth-key: ${MSG91_AUTH_KEY}
-  sender-id: ${MSG91_SENDER_ID}
-  template-id: ${MSG91_TEMPLATE_ID}
-
+  auth-key: ${MSG_AUTH_KEY}
+  sender-id: ${MSG_SENDER_ID}
+  template-id: ${MSG_TEMPLATE_ID}
+  
 cashfree:
   app-id: ${CASHFREE_APP_ID}
   secret-key: ${CASHFREE_SECRET_KEY}
-  api-url: ${CASHFREE_API_URL:https://api.cashfree.com/pg}
+  api-url: ${CASHFREE_API_URL}   # prod; use https://sandbox.cashfree.com/pg for test
 
 app:
-  frontend-url: ${FRONTEND_URL}
+  frontend-url: ${FRONTEND_URL:https://snowiness-revenue-outline.ngrok-free.dev}
+  
+  

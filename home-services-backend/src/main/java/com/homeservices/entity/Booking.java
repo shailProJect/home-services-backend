@@ -11,7 +11,9 @@ import java.time.LocalTime;
 import java.util.UUID;
 
 @Entity
-@Table(name = "bookings")
+@Table(name = "bookings",
+    indexes = {@Index(name = "idx_provider_booking_time",
+        columnList = "provider_service_id, bookingDate, startTime, endTime")})
 @Getter
 @Setter
 @NoArgsConstructor
@@ -96,11 +98,13 @@ public class Booking {
 
   /** Timestamp when provider accepted the booking */
   private LocalDateTime acceptedAt;
-
+  private LocalDateTime acceptanceDeadline;
   /** Timestamp when provider actually arrived / started work */
   private LocalDateTime arrivedAt;
 
   @CreationTimestamp
   @Column(updatable = false)
   private LocalDateTime createdAt;
+  
+
 }
