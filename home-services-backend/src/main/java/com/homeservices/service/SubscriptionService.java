@@ -23,43 +23,26 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.*;
 
-// TODO: Auto-generated Javadoc
-/**
- * The Class SubscriptionService.
- */
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class SubscriptionService {
 
-  /** The provider repository. */
   private final ProviderRepository providerRepository;
-  
-  /** The subscription repository. */
   private final ProviderSubscriptionRepository subscriptionRepository;
-  
-  /** The provider service repository. */
   private final ProviderServiceRepository providerServiceRepository;
-  
-  /** The booking repository. */
   private final BookingRepository bookingRepository;
-  
-  /** The platform settings service. */
-  private final PlatformSettingsService platformSettingsService; // ← NEW
+  private final PlatformSettingsService platformSettingsService;
 
-  /** The cashfree app id. */
   @Value("${cashfree.app-id}")
   private String cashfreeAppId;
 
-  /** The cashfree secret key. */
   @Value("${cashfree.secret-key}")
   private String cashfreeSecretKey;
 
-  /** The cashfree api url. */
   @Value("${cashfree.api-url:https://api.cashfree.com/pg}")
   private String cashfreeApiUrl;
 
-  /** The frontend url. */
   @Value("${app.frontend-url:http://localhost:3000}")
   private String frontendUrl;
 
@@ -67,14 +50,6 @@ public class SubscriptionService {
   // PUBLIC API
   // ─────────────────────────────────────────────────────────────────────────
 
-  /**
-   * Returns the current subscription status for the provider. Also auto-deactivates the provider if
-   * the free limit has been hit and they have no active subscription (idempotent — safe to call
-   * repeatedly).
-   *
-   * @param userId the user id
-   * @return the status
-   */
   @Transactional
   public SubscriptionResponse getStatus(UUID userId) {
     Provider provider = getProvider(userId);
@@ -85,12 +60,10 @@ public class SubscriptionService {
         subscriptionRepository.findActiveByProviderId(provider.getId(), LocalDateTime.now());
 
     if (activeSub.isPresent()) {
-      // Has a valid paid subscription → ensure provider is active
       ensureProviderActive(provider, "Subscription active");
-      return toResponse(activeSub.get(), servicesUsed, freeLimit, false);
+      return toResponse(activeSub.get(), servicesUsed, freeLimit);
     }
 
-    // No active subscription — check if free tier is exhausted
     if (servicesUsed >= freeLimit) {
       autoDeactivateProvider(provider,
           "Free tier limit of " + freeLimit + " bookings reached. Subscribe to reactivate.");
@@ -101,13 +74,6 @@ public class SubscriptionService {
         .build();
   }
 
-  /**
-   * Called after every new booking is recorded — checks if this booking pushed the provider over
-   * the free limit and deactivates them if so. Call this from UserService#createBooking after
-   * saving the booking.
-   *
-   * @param providerId the provider id
-   */
   @Transactional
   public void checkAndEnforceFreeTierAfterBooking(UUID providerId) {
     Provider provider = providerRepository.findById(providerId).orElse(null);
@@ -117,7 +83,6 @@ public class SubscriptionService {
     int bookingsCount = (int) bookingRepository.countByProviderService_Provider_Id(providerId);
     int freeLimit = platformSettingsService.getFreeLimitLive();
 
-    // Already has an active subscription — no action needed
     boolean subscribed =
         subscriptionRepository.findActiveByProviderId(providerId, LocalDateTime.now()).isPresent();
     if (subscribed)
@@ -130,40 +95,37 @@ public class SubscriptionService {
     }
   }
 
-  /**
-   * Returns full subscription history for the provider.
-   *
-   * @param userId the user id
-   * @return the history
-   */
   public List<SubscriptionResponse> getHistory(UUID userId) {
     Provider provider = getProvider(userId);
     int servicesUsed = (int) bookingRepository.countByProviderService_Provider_Id(provider.getId());
     int freeLimit = platformSettingsService.getFreeLimitLive();
 
     return subscriptionRepository.findByProviderIdOrderByCreatedAtDesc(provider.getId()).stream()
-        .map(s -> toResponse(s, servicesUsed, freeLimit, false)).toList();
+        .map(s -> toResponse(s, servicesUsed, freeLimit)).toList();
   }
 
   /**
-   * Creates a Cashfree order and returns the paymentSessionId.
+   * Creates a Cashfree order.
    *
-   * @param userId the user id
-   * @param req the req
-   * @return the subscription response
+   * KEY CHANGE: price is now read from PlatformSettings (admin-configured) instead of the hardcoded
+   * value in the SubscriptionPlan enum. The enum price is kept as a fallback default only.
    */
   @Transactional
   public SubscriptionResponse createOrder(UUID userId, SubscriptionOrderRequest req) {
     Provider provider = getProvider(userId);
     SubscriptionPlan plan = req.getPlan();
 
+    // ── Read the LIVE admin-configured price ──────────────────────────────
+    BigDecimal livePrice = platformSettingsService.getLivePriceForPlan(plan);
+
     String orderId =
         "SUB-" + provider.getId().toString().replace("-", "").substring(0, 12).toUpperCase() + "-"
             + System.currentTimeMillis();
 
+    // ── Build Cashfree order payload ──────────────────────────────────────
     Map<String, Object> orderPayload = new LinkedHashMap<>();
     orderPayload.put("order_id", orderId);
-    orderPayload.put("order_amount", plan.getPrice().doubleValue());
+    orderPayload.put("order_amount", livePrice.doubleValue()); // ← live price
     orderPayload.put("order_currency", "INR");
     orderPayload.put("order_note", "ApnaAdmi subscription: " + plan.getLabel());
 
@@ -188,27 +150,26 @@ public class SubscriptionService {
       throw new BadRequestException("Payment gateway error. Please try again.");
     }
 
+    // ── Persist subscription record with the LIVE price ───────────────────
     LocalDateTime now = LocalDateTime.now();
-    ProviderSubscription sub = ProviderSubscription.builder().provider(provider).plan(plan)
-        .amountPaid(plan.getPrice()).cashfreeOrderId(orderId).paymentSessionId(paymentSessionId)
-        .paymentStatus("CREATED").startsAt(now).expiresAt(plan.expiryFromNow()).build();
+    ProviderSubscription sub =
+        ProviderSubscription.builder().provider(provider).plan(plan).amountPaid(livePrice) // ← live
+                                                                                           // price
+                                                                                           // recorded
+                                                                                           // at
+                                                                                           // purchase
+                                                                                           // time
+            .cashfreeOrderId(orderId).paymentSessionId(paymentSessionId).paymentStatus("CREATED")
+            .startsAt(now).expiresAt(plan.expiryFromNow()).build();
 
     subscriptionRepository.save(sub);
 
     int servicesUsed = (int) bookingRepository.countByProviderService_Provider_Id(provider.getId());
     int freeLimit = platformSettingsService.getFreeLimitLive();
 
-    return toResponse(sub, servicesUsed, freeLimit, false);
+    return toResponse(sub, servicesUsed, freeLimit);
   }
 
-  /**
-   * Called by the frontend after Cashfree checkout redirect to verify payment. On PAID →
-   * auto-reactivates the provider.
-   *
-   * @param userId the user id
-   * @param cashfreeOrderId the cashfree order id
-   * @return the subscription response
-   */
   @Transactional
   public SubscriptionResponse verifyPayment(UUID userId, String cashfreeOrderId) {
     ProviderSubscription sub = subscriptionRepository.findByCashfreeOrderId(cashfreeOrderId)
@@ -221,7 +182,7 @@ public class SubscriptionService {
     if ("PAID".equals(sub.getPaymentStatus())) {
       int used =
           (int) bookingRepository.countByProviderService_Provider_Id(sub.getProvider().getId());
-      return toResponse(sub, used, platformSettingsService.getFreeLimitLive(), false);
+      return toResponse(sub, used, platformSettingsService.getFreeLimitLive());
     }
 
     try {
@@ -230,7 +191,7 @@ public class SubscriptionService {
       String cfStatus = (String) cfOrder.get("order_status");
 
       if ("PAID".equalsIgnoreCase(cfStatus)) {
-        activateSubAndProvider(sub); // ← reactivates provider too
+        activateSubAndProvider(sub);
       } else if ("EXPIRED".equalsIgnoreCase(cfStatus) || "CANCELLED".equalsIgnoreCase(cfStatus)) {
         sub.setPaymentStatus("FAILED");
         subscriptionRepository.save(sub);
@@ -242,15 +203,9 @@ public class SubscriptionService {
     int used =
         (int) bookingRepository.countByProviderService_Provider_Id(sub.getProvider().getId());
     int freeLimit = platformSettingsService.getFreeLimitLive();
-    return toResponse(sub, used, freeLimit, false);
+    return toResponse(sub, used, freeLimit);
   }
 
-  /**
-   * Cashfree webhook handler — called server-to-server. On PAID → marks subscription active AND
-   * reactivates provider.
-   *
-   * @param payload the payload
-   */
   @Transactional
   public void handleWebhook(Map<String, Object> payload) {
     try {
@@ -271,7 +226,7 @@ public class SubscriptionService {
 
       subscriptionRepository.findByCashfreeOrderId(orderId).ifPresent(sub -> {
         if ("PAID".equalsIgnoreCase(status)) {
-          activateSubAndProvider(sub); // ← reactivates provider
+          activateSubAndProvider(sub);
         } else if ("EXPIRED".equalsIgnoreCase(status) || "CANCELLED".equalsIgnoreCase(status)) {
           sub.setPaymentStatus("FAILED");
           subscriptionRepository.save(sub);
@@ -287,23 +242,15 @@ public class SubscriptionService {
   // PRIVATE HELPERS
   // ─────────────────────────────────────────────────────────────────────────
 
-  /**
-   * Marks subscription as PAID and re-activates the provider. Idempotent — safe to call multiple
-   * times.
-   *
-   * @param sub the sub
-   */
   private void activateSubAndProvider(ProviderSubscription sub) {
     if ("PAID".equals(sub.getPaymentStatus()))
       return;
 
-    LocalDateTime now = LocalDateTime.now();
     sub.setPaymentStatus("PAID");
-    sub.setStartsAt(now);
+    sub.setStartsAt(LocalDateTime.now());
     sub.setExpiresAt(sub.getPlan().expiryFromNow());
     subscriptionRepository.save(sub);
 
-    // ── Auto-reactivate the provider ──────────────────────────────────
     Provider provider = sub.getProvider();
     if (!provider.isActive()) {
       provider.setActive(true);
@@ -313,28 +260,14 @@ public class SubscriptionService {
     }
   }
 
-  /**
-   * Deactivates provider if they have hit the free limit and have no subscription. Idempotent —
-   * only writes to DB if provider is currently active.
-   *
-   * @param provider the provider
-   * @param reason the reason
-   */
   private void autoDeactivateProvider(Provider provider, String reason) {
     if (!provider.isActive())
-      return; // already inactive — nothing to do
+      return;
     provider.setActive(false);
     providerRepository.save(provider);
     log.info("Provider {} auto-deactivated. Reason: {}", provider.getId(), reason);
   }
 
-  /**
-   * Ensures provider is active (called when subscription is valid). Repairs state in case provider
-   * was deactivated then manually resubscribed.
-   *
-   * @param provider the provider
-   * @param reason the reason
-   */
   private void ensureProviderActive(Provider provider, String reason) {
     if (provider.isActive())
       return;
@@ -343,14 +276,6 @@ public class SubscriptionService {
     log.info("Provider {} reactivated. Reason: {}", provider.getId(), reason);
   }
 
-  /**
-   * Call cashfree.
-   *
-   * @param path the path
-   * @param method the method
-   * @param body the body
-   * @return the map
-   */
   @SuppressWarnings("unchecked")
   private Map<String, Object> callCashfree(String path, HttpMethod method,
       Map<String, Object> body) {
@@ -365,32 +290,15 @@ public class SubscriptionService {
         (body != null) ? new HttpEntity<>(body, headers) : new HttpEntity<>(headers);
 
     ResponseEntity<Map> resp = rt.exchange(cashfreeApiUrl + path, method, entity, Map.class);
-
     return resp.getBody() != null ? resp.getBody() : Map.of();
   }
 
-  /**
-   * Gets the provider.
-   *
-   * @param userId the user id
-   * @return the provider
-   */
   private Provider getProvider(UUID userId) {
     return providerRepository.findByUserId(userId)
         .orElseThrow(() -> new ResourceNotFoundException("Provider profile not found"));
   }
 
-  /**
-   * To response.
-   *
-   * @param s the s
-   * @param servicesUsed the services used
-   * @param freeLimit the free limit
-   * @param includeSession the include session
-   * @return the subscription response
-   */
-  private SubscriptionResponse toResponse(ProviderSubscription s, int servicesUsed, int freeLimit,
-      boolean includeSession) {
+  private SubscriptionResponse toResponse(ProviderSubscription s, int servicesUsed, int freeLimit) {
     return SubscriptionResponse.builder().id(s.getId()).plan(s.getPlan().name())
         .planLabel(s.getPlan().getLabel()).amountPaid(s.getAmountPaid())
         .paymentStatus(s.getPaymentStatus()).active(s.isActive()).startsAt(s.getStartsAt())

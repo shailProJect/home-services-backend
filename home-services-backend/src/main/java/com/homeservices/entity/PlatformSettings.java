@@ -4,14 +4,15 @@ import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.UpdateTimestamp;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 /**
- * Singleton table — always has exactly ONE row (id = 1). Stores admin-configurable platform
- * settings that override compiled constants.
- *
- * Usage: - FREE_SERVICE_LIMIT in ProviderSubscription.java is now the *default* fallback. - At
- * runtime, SubscriptionService reads the limit from this table instead.
+ * Singleton table — always has exactly ONE row (id = 1).
+ * Stores all admin-configurable platform settings:
+ *   - free tier booking limit
+ *   - promotional offer banner + discount
+ *   - subscription plan prices (admin can override defaults at any time)
  */
 @Entity
 @Table(name = "platform_settings")
@@ -22,42 +23,56 @@ import java.time.LocalDateTime;
 @Builder
 public class PlatformSettings {
 
-  /** Always 1 — singleton row */
-  @Id
-  private Long id;
+    /** Always 1 — singleton row */
+    @Id
+    private Long id;
 
-  /**
-   * How many free bookings a provider gets before needing a subscription. Default: 10. Admin can
-   * raise or lower this at any time.
-   */
-  @Column(nullable = false)
-  @Builder.Default
-  private int freeServiceLimit = 10;
+    // ── Free tier ────────────────────────────────────────────────────────────
 
-  /**
-   * Optional promotional offer message shown on the provider subscription page. Example: "🎉
-   * Special offer: Get 1 Month FREE with annual plan!" Set to null / empty to hide the banner.
-   */
-  @Column(columnDefinition = "TEXT")
-  private String offerBannerText;
+    @Column(nullable = false)
+    @Builder.Default
+    private int freeServiceLimit = 10;
 
-  /**
-   * Optional discount percentage (0–100) applied to all plans while the offer is active. 0 means no
-   * discount.
-   */
-  @Column(nullable = false)
-  @Builder.Default
-  private int offerDiscountPercent = 0;
+    // ── Subscription plan prices (INR) ───────────────────────────────────────
+    // Defaults mirror the hardcoded values in SubscriptionPlan enum.
+    // Admin can change these at any time; SubscriptionService reads these live.
 
-  /**
-   * When the current offer expires. Null = no expiry / no offer.
-   */
-  private LocalDateTime offerExpiresAt;
+    /** Price for the DAY plan (default ₹99) */
+    @Column(nullable = false, precision = 10, scale = 2)
+    @Builder.Default
+    private BigDecimal priceDayPlan = BigDecimal.valueOf(99);
 
-  /** Who last changed the settings */
-  @Column(length = 100)
-  private String lastUpdatedBy;
+    /** Price for the WEEK plan (default ₹299) */
+    @Column(nullable = false, precision = 10, scale = 2)
+    @Builder.Default
+    private BigDecimal priceWeekPlan = BigDecimal.valueOf(299);
 
-  @UpdateTimestamp
-  private LocalDateTime updatedAt;
+    /** Price for the MONTH plan (default ₹999) */
+    @Column(nullable = false, precision = 10, scale = 2)
+    @Builder.Default
+    private BigDecimal priceMonthPlan = BigDecimal.valueOf(999);
+
+    /** Price for the YEAR plan (default ₹9999) */
+    @Column(nullable = false, precision = 10, scale = 2)
+    @Builder.Default
+    private BigDecimal priceYearPlan = BigDecimal.valueOf(9999);
+
+    // ── Promotional offer ────────────────────────────────────────────────────
+
+    @Column(columnDefinition = "TEXT")
+    private String offerBannerText;
+
+    @Column(nullable = false)
+    @Builder.Default
+    private int offerDiscountPercent = 0;
+
+    private LocalDateTime offerExpiresAt;
+
+    // ── Audit ────────────────────────────────────────────────────────────────
+
+    @Column(length = 100)
+    private String lastUpdatedBy;
+
+    @UpdateTimestamp
+    private LocalDateTime updatedAt;
 }
