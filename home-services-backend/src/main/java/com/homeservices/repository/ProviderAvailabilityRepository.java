@@ -9,5 +9,7 @@ import java.util.UUID;
 
 @Repository
 public interface ProviderAvailabilityRepository extends JpaRepository<ProviderAvailability, UUID> {
-    List<ProviderAvailability> findByProviderId(UUID providerId);
+  List<ProviderAvailability> findByProviderId(UUID providerId);
+
+  void deleteByProviderId(UUID providerId);
 }

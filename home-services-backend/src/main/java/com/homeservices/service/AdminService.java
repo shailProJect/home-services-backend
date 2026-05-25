@@ -3,12 +3,14 @@ package com.homeservices.service;
 import com.homeservices.dto.response.BookingResponse;
 import com.homeservices.dto.response.ProviderDetailResponse;
 import com.homeservices.dto.response.ProviderResponse;
+import com.homeservices.dto.response.ReviewResponse;
 import com.homeservices.dto.response.UserResponse;
 import com.homeservices.entity.Provider;
 import com.homeservices.entity.User;
 import com.homeservices.exception.ResourceNotFoundException;
 import com.homeservices.mapper.BookingMapper;
 import com.homeservices.mapper.ProviderMapper;
+import com.homeservices.mapper.ReviewMapper;
 import com.homeservices.repository.BookingRepository;
 import com.homeservices.repository.ProviderRepository;
 import com.homeservices.repository.ReviewRepository;
@@ -27,66 +29,49 @@ public class AdminService {
   private final ProviderRepository providerRepository;
   private final UserRepository userRepository;
   private final BookingRepository bookingRepository;
+  private final ReviewRepository reviewRepository;
   private final ProviderMapper providerMapper;
   private final BookingMapper bookingMapper;
-  private final ReviewRepository reviewRepository;
-  private final com.homeservices.mapper.ReviewMapper reviewMapper;
+  private final ReviewMapper reviewMapper;
 
-  // ── List all providers ────────────────────────────────────────────────────
+  // ── Providers ─────────────────────────────────────────────────────────────
 
   public List<ProviderResponse> getAllProviders() {
     return providerRepository.findAll().stream().map(providerMapper::toProviderResponse).toList();
   }
 
-  // ── Full provider detail (for admin verification review) ──────────────────
-
-  /**
-   * Returns the complete profile of a single provider including shop details,
-   * uploaded documents, account status, and personal information.
-   * Intended for the admin "review before verify" screen.
-   */
   public ProviderDetailResponse getProviderDetail(UUID providerId) {
-    Provider provider = providerRepository.findById(providerId)
-        .orElseThrow(() -> new ResourceNotFoundException("Provider not found"));
-    return toProviderDetailResponse(provider);
+    return toProviderDetailResponse(providerRepository.findById(providerId)
+        .orElseThrow(() -> new ResourceNotFoundException("Provider not found")));
   }
-
-  // ── Approve provider ──────────────────────────────────────────────────────
 
   @Transactional
   public ProviderDetailResponse approveProvider(UUID providerId) {
-    Provider provider = providerRepository.findById(providerId)
+    Provider p = providerRepository.findById(providerId)
         .orElseThrow(() -> new ResourceNotFoundException("Provider not found"));
-    provider.setVerified(true);
-    provider.setAdminNotes(null); // clear any previous rejection note
-    providerRepository.save(provider);
-    return toProviderDetailResponse(provider);
+    p.setVerified(true);
+    p.setActive(true);
+    p.setAdminNotes(null);
+    return toProviderDetailResponse(providerRepository.save(p));
   }
-
-  // ── Reject provider (with optional reason) ────────────────────────────────
 
   @Transactional
   public ProviderDetailResponse rejectProvider(UUID providerId, String notes) {
-    Provider provider = providerRepository.findById(providerId)
+    Provider p = providerRepository.findById(providerId)
         .orElseThrow(() -> new ResourceNotFoundException("Provider not found"));
-    provider.setVerified(false);
-    provider.setActive(false);
-    if (notes != null && !notes.isBlank()) {
-      provider.setAdminNotes(notes);
-    }
-    providerRepository.save(provider);
-    return toProviderDetailResponse(provider);
+    p.setVerified(false);
+    p.setActive(false);
+    if (notes != null && !notes.isBlank())
+      p.setAdminNotes(notes);
+    return toProviderDetailResponse(providerRepository.save(p));
   }
-
-  // ── Toggle active ─────────────────────────────────────────────────────────
 
   @Transactional
   public ProviderResponse toggleProviderActive(UUID providerId, boolean active) {
-    Provider provider = providerRepository.findById(providerId)
+    Provider p = providerRepository.findById(providerId)
         .orElseThrow(() -> new ResourceNotFoundException("Provider not found"));
-    provider.setActive(active);
-    providerRepository.save(provider);
-    return providerMapper.toProviderResponse(provider);
+    p.setActive(active);
+    return providerMapper.toProviderResponse(providerRepository.save(p));
   }
 
   // ── Users ─────────────────────────────────────────────────────────────────
@@ -101,48 +86,59 @@ public class AdminService {
     return bookingRepository.findAll().stream().map(bookingMapper::toBookingResponse).toList();
   }
 
-  // ── Private mappers ───────────────────────────────────────────────────────
+  // ── Reviews (FIX: these were commented out / missing) ─────────────────────
+
+  public List<ReviewResponse> getAllReviews() {
+    return reviewRepository.findAll().stream().map(reviewMapper::toReviewResponse).toList();
+  }
+
+  public List<ReviewResponse> getReviewsByProvider(UUID providerId) {
+    if (!providerRepository.existsById(providerId))
+      throw new ResourceNotFoundException("Provider not found");
+    return reviewRepository.findByProviderId(providerId).stream()
+        .map(reviewMapper::toReviewResponse).toList();
+  }
+
+  @Transactional
+  public void deleteReview(UUID reviewId) {
+    if (!reviewRepository.existsById(reviewId))
+      throw new ResourceNotFoundException("Review not found");
+
+    // Recalculate provider rating after delete
+    var review = reviewRepository.findById(reviewId).get();
+    UUID providerId = review.getProvider().getId();
+    reviewRepository.deleteById(reviewId);
+
+    Double avg = reviewRepository.findAverageRatingByProviderId(providerId);
+    Provider p = providerRepository.findById(providerId).orElse(null);
+    if (p != null) {
+      p.setRating(avg != null ? avg : 0.0);
+      providerRepository.save(p);
+    }
+  }
+
+  // ── Mappers ───────────────────────────────────────────────────────────────
 
   private ProviderDetailResponse toProviderDetailResponse(Provider p) {
     User u = p.getUser();
-    return ProviderDetailResponse.builder()
-        .providerId(p.getId())
-        .userId(u.getId())
-        // user
-        .name(u.getName())
-        .email(u.getEmail())
-        .phone(u.getPhone())
-        .emailVerified(u.isEmailVerified())
-        .phoneVerified(u.isPhoneVerified())
-        .registeredAt(u.getCreatedAt())
-        .userAddress(u.getAddress())
-        // professional
+    return ProviderDetailResponse.builder().providerId(p.getId()).userId(u.getId())
+        .name(u.getName()).email(u.getEmail()).phone(u.getPhone())
+        .emailVerified(u.isEmailVerified()).phoneVerified(u.isPhoneVerified())
+        .registeredAt(u.getCreatedAt()).userAddress(u.getAddress())
         .categoryId(p.getCategory() != null ? p.getCategory().getId() : null)
         .categoryName(p.getCategory() != null ? p.getCategory().getName() : null)
-        .experienceYears(p.getExperienceYears())
-        .rating(p.getRating())
-        // shop / location
-        .shopName(p.getShopName())
-        .shopAddress(p.getShopAddress())
-        .serviceArea(p.getServiceArea())
-        .latitude(p.getLatitude())
-        .longitude(p.getLongitude())
-        // documents
-        .govtIdDocumentUrl(p.getGovtIdDocumentUrl())
+        .experienceYears(p.getExperienceYears()).rating(p.getRating()).shopName(p.getShopName())
+        .shopAddress(p.getShopAddress()).serviceArea(p.getServiceArea()).latitude(p.getLatitude())
+        .longitude(p.getLongitude()).govtIdDocumentUrl(p.getGovtIdDocumentUrl())
         .businessCertificateUrl(p.getBusinessCertificateUrl())
-        .addressProofUrl(p.getAddressProofUrl())
-        // status
-        .profilePhotoUrl(p.getUser().getProfilePhoto())
-        .verified(p.isVerified())
-        .active(p.isActive())
-        .adminNotes(p.getAdminNotes())
-        .build();
+        .addressProofUrl(p.getAddressProofUrl()).profilePhotoUrl(u.getProfilePhoto())
+        .verified(p.isVerified()).active(p.isActive()).adminNotes(p.getAdminNotes()).build();
   }
 
-  private UserResponse toUserResponse(User user) {
-    return UserResponse.builder().id(user.getId()).name(user.getName()).email(user.getEmail())
-        .phone(user.getPhone()).role(user.getRole()).enabled(user.isEnabled())
-        .createdAt(user.getCreatedAt()).phoneVerified(user.isPhoneVerified())
-        .emailVerified(user.isEmailVerified()).address(user.getAddress()).build();
+  private UserResponse toUserResponse(User u) {
+    return UserResponse.builder().id(u.getId()).name(u.getName()).email(u.getEmail())
+        .phone(u.getPhone()).role(u.getRole()).enabled(u.isEnabled()).createdAt(u.getCreatedAt())
+        .phoneVerified(u.isPhoneVerified()).emailVerified(u.isEmailVerified())
+        .address(u.getAddress()).profilePhoto(u.getProfilePhoto()).build();
   }
 }

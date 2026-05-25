@@ -2,7 +2,7 @@ package com.homeservices.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
-
+import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Entity
@@ -64,4 +64,11 @@ public class Provider {
     /** Any additional notes or rejection reason set by the admin */
     @Column(columnDefinition = "TEXT")
     private String adminNotes;
+    
+    private String phoneOtp;
+
+    private LocalDateTime otpExpiry;
+
+    @Builder.Default
+    private boolean phoneVerified = false;
 }

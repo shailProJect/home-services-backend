@@ -6,6 +6,7 @@ import java.util.UUID;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -18,6 +19,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 import com.homeservices.dto.request.BookingRequest;
 import com.homeservices.dto.request.FirebasePhoneVerifyRequest;
+import com.homeservices.dto.request.PushSubscriptionRequest;
 import com.homeservices.dto.request.ReviewRequest;
 import com.homeservices.dto.request.SendPhoneOtpRequest;
 import com.homeservices.dto.request.UpdateProfileRequest;
@@ -31,10 +33,12 @@ import com.homeservices.dto.response.UserResponse;
 import com.homeservices.entity.User;
 import com.homeservices.repository.UserRepository;
 import com.homeservices.service.FirebaseService;
+import com.homeservices.service.Msg91Service;
 import com.homeservices.service.UserService;
 import com.homeservices.util.SecurityUtil;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.Authentication;
 
 @RestController
 @RequestMapping("/user")
@@ -45,7 +49,7 @@ public class UserController {
   private final SecurityUtil securityUtil;
   private final FirebaseService firebaseService;
   private final UserRepository userRepository;
-
+  private final Msg91Service msg91Service ;
   /**
    * GET /user/profile — Get current user's profile
    */
@@ -234,4 +238,34 @@ public class UserController {
       return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
     }
   }
+
+  @PostMapping("/push/subscribe")
+  public ResponseEntity<String> subscribe(
+          Authentication authentication,
+          @RequestBody PushSubscriptionRequest request
+  ) {
+
+      try {
+
+          String email = authentication.getName();
+
+          userService.saveSubscription(email, request);
+
+      } catch (Exception e) {
+          e.printStackTrace();
+      }
+
+      return ResponseEntity.ok("Subscribed successfully");
+  }
+  
+  @GetMapping("/test-sms")
+  public String testSms() {
+
+      msg91Service.sendOtp(
+              "9284389802",
+              "483921"
+      );
+
+      return "SMS Sent";
+}
 }

@@ -124,6 +124,32 @@
     <version>9.3.0</version>
 </dependency>
 
+<dependency>
+    <groupId>nl.martijndwars</groupId>
+    <artifactId>web-push</artifactId>
+    <version>5.1.1</version>
+</dependency>
+
+<dependency>
+    <groupId>org.bouncycastle</groupId>
+    <artifactId>bcprov-jdk18on</artifactId>
+    <version>1.78.1</version>
+</dependency>
+
+<dependency>
+    <groupId>org.bouncycastle</groupId>
+    <artifactId>bcpkix-jdk18on</artifactId>
+    <version>1.78.1</version>
+</dependency>
+
+<!-- Source: https://mvnrepository.com/artifact/com.cashfree.pg.java/cashfree_pg -->
+<dependency>
+    <groupId>com.cashfree.pg.java</groupId>
+    <artifactId>cashfree_pg</artifactId>
+    <version>5.0.1</version>
+    <scope>compile</scope>
+</dependency>
+
     </dependencies>
 
  	<build>

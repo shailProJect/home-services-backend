@@ -6,7 +6,7 @@ resend:
   
 spring:
   profiles:
-    active: ${SPRING_PROFILES_ACTIVE:local}
+    active: prod
 
   jpa:
     hibernate:
@@ -36,3 +36,21 @@ logging:
   level:
     org.springframework.security: DEBUG
     com.homeservices: DEBUG
+    
+vapid:
+  public-key: ${PUSH_PUBLIC_KEY}
+  private-key: ${PUSH_PRIVATE_KEY}
+  subject: ${PUSH_SUBJECT}
+  
+msg91:
+  auth-key: ${MSG_AUTH_KEY}
+  sender-id: ${MSG_SENDER_ID}
+  template-id: ${MSG_TEMPLATE_ID}
+  
+cashfree:
+  app-id: ${CASHFREE_APP_ID}
+  secret-key: ${CASHFREE_SECRET_KEY}
+  api-url: ${CASHFREE_API_URL}   # prod; use https://sandbox.cashfree.com/pg for test
+
+app:
+  frontend-url: ${FRONTEND_URL:https://snowiness-revenue-outline.ngrok-free.dev}

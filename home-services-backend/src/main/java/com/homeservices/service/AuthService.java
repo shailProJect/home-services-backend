@@ -55,6 +55,8 @@ public class AuthService {
 
   private final FirebaseService firebaseService;
 
+  private final Msg91Service msg91Service;
+
   // ─────────────────────────────────────────
   // REGISTER
   // ─────────────────────────────────────────
@@ -125,9 +127,21 @@ public class AuthService {
 
           .rating(0.0)
 
+          .phoneVerified(false)
+
           .build();
 
+      // GENERATE PHONE OTP
+      String phoneOtp = String.valueOf(ThreadLocalRandom.current().nextInt(100000, 999999));
+
+      provider.setPhoneOtp(phoneOtp);
+
+      provider.setOtpExpiry(LocalDateTime.now().plusMinutes(5));
+
       providerRepository.save(provider);
+      System.out.println("phoneOtp " + phoneOtp);
+      // SEND SMS OTP
+      msg91Service.sendOtp(request.getPhone(), phoneOtp);
     }
 
     // SEND EMAIL
@@ -394,6 +408,24 @@ public class AuthService {
     User user = userRepository.findByEmail(email)
         .orElseThrow(() -> new ResourceNotFoundException("No account found with this email."));
 
+    if (user.getRole() == Role.PROVIDER) {
+
+      Provider provider = providerRepository
+              .findByUser(user)
+              .orElseThrow(() ->
+                      new RuntimeException(
+                              "Provider not found"
+                      )
+              );
+
+      if (!provider.isPhoneVerified()) {
+
+          throw new RuntimeException(
+                  "Please verify mobile number"
+          );
+      }
+  }
+    
     LocalDateTime now = LocalDateTime.now();
 
     // Rate-limit: max 3 OTPs per hour
@@ -437,5 +469,38 @@ public class AuthService {
     user.setEmailOtp(null);
     user.setOtpExpiry(null);
     userRepository.save(user);
+  }
+
+  @Transactional
+  public void verifyProviderPhone(String phone, String otp) {
+
+    User user =
+        userRepository.findByPhone(phone).orElseThrow(() -> new RuntimeException("User not found"));
+
+    Provider provider = providerRepository.findByUser(user)
+        .orElseThrow(() -> new RuntimeException("Provider not found"));
+
+    if (provider.getPhoneOtp() == null) {
+
+      throw new RuntimeException("OTP not generated");
+    }
+
+    if (provider.getOtpExpiry().isBefore(LocalDateTime.now())) {
+
+      throw new RuntimeException("OTP expired");
+    }
+
+    if (!provider.getPhoneOtp().equals(otp)) {
+
+      throw new RuntimeException("Invalid OTP");
+    }
+
+    provider.setPhoneVerified(true);
+
+    provider.setPhoneOtp(null);
+
+    provider.setOtpExpiry(null);
+
+    providerRepository.save(provider);
   }
 }
