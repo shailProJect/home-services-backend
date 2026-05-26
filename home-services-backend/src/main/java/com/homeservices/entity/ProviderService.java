@@ -38,4 +38,11 @@ public class ProviderService {
     @Column(nullable = false)
     @Builder.Default
     private boolean active = true;
+    
+    private String description;
+    
+    private boolean perDayAllowed;
+    
+    private Integer perDayRate;
+
 }

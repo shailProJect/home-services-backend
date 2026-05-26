@@ -59,8 +59,13 @@ public class ProviderManagementService {
           "You already have an active service named \"" + request.getServiceName().trim() + "\"");
 
     ProviderService ps = ProviderService.builder().provider(provider).category(category)
-        .serviceName(request.getServiceName().trim()).price(request.getPrice())
-        .durationMinutes(request.getDurationMinutes()).build();
+        .serviceName(request.getServiceName().trim())
+        .description(request.getDescription())
+        .price(request.getPrice())
+        .durationMinutes(request.getDurationMinutes())
+        .perDayRate(request.getPerDayRate())
+        .perDayAllowed(request.isPerDayAllowed())
+        .build();
 
     return providerMapper.toProviderServiceResponse(providerServiceRepository.save(ps));
   }
@@ -81,8 +86,11 @@ public class ProviderManagementService {
 
     ps.setCategory(category);
     ps.setServiceName(request.getServiceName().trim());
+    ps.setDescription(request.getDescription());
     ps.setPrice(request.getPrice());
     ps.setDurationMinutes(request.getDurationMinutes());
+    ps.setPerDayRate(request.getPerDayRate());
+    ps.setPerDayAllowed(request.isPerDayAllowed());
     return providerMapper.toProviderServiceResponse(providerServiceRepository.save(ps));
   }
 

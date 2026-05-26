@@ -23,4 +23,10 @@ public class ProviderServiceRequest {
 
     @Positive(message = "Duration must be positive")
     private Integer durationMinutes;
+    
+    private String description;
+    
+    private boolean perDayAllowed;
+    
+    private Integer perDayRate;
 }
