@@ -6,7 +6,6 @@ import java.util.UUID;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -18,6 +17,7 @@ import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 import com.homeservices.dto.request.BookingRequest;
+import com.homeservices.dto.request.CartBookingRequest;
 import com.homeservices.dto.request.FirebasePhoneVerifyRequest;
 import com.homeservices.dto.request.PushSubscriptionRequest;
 import com.homeservices.dto.request.ReviewRequest;
@@ -26,6 +26,7 @@ import com.homeservices.dto.request.UpdateProfileRequest;
 import com.homeservices.dto.request.VerifyPhoneRequest;
 import com.homeservices.dto.response.ApiResponse;
 import com.homeservices.dto.response.BookingResponse;
+import com.homeservices.dto.response.CartBookingResponse;
 import com.homeservices.dto.response.ProviderResponse;
 import com.homeservices.dto.response.ProviderServiceResponse;
 import com.homeservices.dto.response.ReviewResponse;
@@ -116,6 +117,30 @@ public class UserController {
       @RequestParam String category) {
     List<ProviderServiceResponse> result = userService.searchByCategory(category);
     return ResponseEntity.ok(ApiResponse.success(result));
+  }
+
+  /**
+   * GET /user/providers/enriched?category=ELECTRICIAN
+   * Returns enriched ProviderResponse list with trust signals: totalReviews,
+   * startingPrice, highlightedFeedback, verificationBadge, experienceYears.
+   */
+  @GetMapping("/providers/enriched")
+  public ResponseEntity<ApiResponse<List<ProviderResponse>>> searchEnrichedProviders(
+      @RequestParam String category) {
+    List<ProviderResponse> result = userService.searchEnrichedProvidersByCategory(category);
+    return ResponseEntity.ok(ApiResponse.success(result));
+  }
+
+  /**
+   * POST /user/bookings/cart
+   * Creates a combined booking for multiple services from the same provider (cart checkout flow).
+   */
+  @PostMapping("/bookings/cart")
+  public ResponseEntity<ApiResponse<CartBookingResponse>> createCartBooking(
+      @Valid @RequestBody CartBookingRequest request) {
+    CartBookingResponse response = userService.createCartBooking(securityUtil.getCurrentUserId(), request);
+    return ResponseEntity.status(HttpStatus.CREATED)
+        .body(ApiResponse.success(response, "Cart booking created successfully"));
   }
 
   /**

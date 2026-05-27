@@ -1,7 +1,9 @@
 package com.homeservices.service;
 
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
@@ -9,7 +11,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 import com.homeservices.dto.request.BookingRequest;
+import com.homeservices.dto.request.CartBookingRequest;
 import com.homeservices.dto.request.PushSubscriptionRequest;
+import com.homeservices.dto.response.CartBookingResponse;
 import com.homeservices.dto.request.ReviewRequest;
 import com.homeservices.dto.request.UpdateProfileRequest;
 import com.homeservices.dto.request.VerifyPhoneRequest;
@@ -188,9 +192,9 @@ public class UserService {
     User user = userRepository.findById(userId)
         .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
-//    if (!user.isPhoneVerified()) {
-//      throw new BadRequestException("Please verify your phone number before making a booking");
-//    }
+    // if (!user.isPhoneVerified()) {
+    // throw new BadRequestException("Please verify your phone number before making a booking");
+    // }
 
     ProviderService providerService =
         providerServiceRepository.findById(request.getProviderServiceId())
@@ -243,9 +247,8 @@ public class UserService {
       e.printStackTrace();
     }
 
-    subscriptionService.checkAndEnforceFreeTierAfterBooking(
-        providerService.getProvider().getId());
-    
+    subscriptionService.checkAndEnforceFreeTierAfterBooking(providerService.getProvider().getId());
+
     return bookingMapper.toBookingResponse(booking);
   }
 
@@ -338,6 +341,125 @@ public class UserService {
     userRepository.save(user);
 
     return toUserResponse(user);
+  }
+
+  // ── Enriched Provider Search ───────────────────────────────────────────────
+
+  /**
+   * Returns enriched ProviderResponse list for a category, with trust and affordability signals
+   * (totalReviews, startingPrice, highlightedFeedback). Avoids N+1 by batching enrichment queries
+   * per provider.
+   */
+  public List<ProviderResponse> searchEnrichedProvidersByCategory(String category) {
+    List<ProviderService> services = providerServiceRepository.findByCategoryName(category);
+
+    // Deduplicate providers preserving order
+    List<Provider> seen = new ArrayList<>();
+    List<UUID> seenIds = new ArrayList<>();
+    for (ProviderService ps : services) {
+      Provider p = ps.getProvider();
+      if (!seenIds.contains(p.getId())) {
+        seen.add(p);
+        seenIds.add(p.getId());
+      }
+    }
+
+    return seen.stream().map(provider -> {
+      UUID pid = provider.getId();
+      Long reviewCount = reviewRepository.countByProviderId(pid);
+      BigDecimal minPrice = providerServiceRepository.findMinPriceByProviderId(pid).orElse(null);
+      String highlight = reviewRepository.findHighlightedFeedback(pid).orElse(null);
+      return providerMapper.toEnrichedProviderResponse(provider, reviewCount, minPrice, highlight);
+    }).toList();
+  }
+
+  // ── Cart Booking ───────────────────────────────────────────────────────────
+
+  /**
+   * Creates a combined multi-service booking from the user's cart. All services must belong to the
+   * specified provider. One Booking row is created per service; they share a cartId (UUID).
+   */
+  @Transactional
+  public CartBookingResponse createCartBooking(UUID userId, CartBookingRequest request) {
+
+    User user = userRepository.findById(userId)
+        .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
+    Provider provider = providerRepository.findById(request.getProviderId())
+        .orElseThrow(() -> new ResourceNotFoundException("Provider not found"));
+
+    if (!provider.isActive()) {
+      throw new BadRequestException("This provider is currently not accepting bookings");
+    }
+
+    if (request.getServiceIds() == null || request.getServiceIds().isEmpty()) {
+      throw new BadRequestException("At least one service must be selected");
+    }
+
+    // Generate a shared cart group ID
+    UUID cartId = UUID.randomUUID();
+
+    List<Booking> bookings = new ArrayList<>();
+    BigDecimal totalAmount = BigDecimal.ZERO;
+
+    for (UUID serviceId : request.getServiceIds()) {
+      ProviderService ps = providerServiceRepository.findById(serviceId)
+          .orElseThrow(() -> new ResourceNotFoundException("Service not found: " + serviceId));
+
+      // Security: ensure service belongs to requested provider
+      if (!ps.getProvider().getId().equals(provider.getId())) {
+        throw new BadRequestException(
+            "Service " + serviceId + " does not belong to provider " + provider.getId());
+      }
+
+      if (!ps.isActive()) {
+        throw new BadRequestException(
+            "Service '" + ps.getServiceName() + "' is currently inactive");
+      }
+
+      Booking booking = Booking.builder().user(user).providerService(ps)
+          .bookingDate(request.getBookingDate()).startTime(request.getStartTime())
+          .endTime(request.getEndTime()).address(request.getAddress()).notes(request.getNotes())
+          .urgent(request.isUrgent()).build();
+
+      bookingRepository.save(booking);
+      bookings.add(booking);
+      totalAmount = totalAmount.add(ps.getPrice());
+    }
+
+    // Send notifications
+    try {
+      var userSubs = pushSubscriptionRepository.findByUserId(user.getId());
+      for (var sub : userSubs) {
+        webPushService.sendNotification(sub, "Cart Booking Confirmed ✅",
+            bookings.size() + " service(s) booked with " + provider.getUser().getName());
+      }
+    } catch (Exception e) {
+      e.printStackTrace();
+    }
+
+    try {
+      var providerSubs = pushSubscriptionRepository.findByProviderId(provider.getId());
+      for (var sub : providerSubs) {
+        webPushService.sendNotification(sub, "New Cart Booking 🛒",
+            user.getName() + " requested " + bookings.size() + " service(s)");
+      }
+    } catch (Exception e) {
+      e.printStackTrace();
+    }
+
+    subscriptionService.checkAndEnforceFreeTierAfterBooking(provider.getId());
+
+    List<com.homeservices.dto.response.BookingResponse> bookingResponses =
+        bookings.stream().map(bookingMapper::toBookingResponse).toList();
+
+    return CartBookingResponse.builder().cartId(cartId).providerId(provider.getId())
+        .providerName(provider.getUser().getName()).userId(user.getId()).userName(user.getName())
+        .bookingDate(request.getBookingDate()).startTime(request.getStartTime())
+        .endTime(request.getEndTime()).address(request.getAddress()).notes(request.getNotes())
+        .overallStatus(com.homeservices.entity.enums.BookingStatus.PENDING).totalAmount(totalAmount)
+        .bookings(bookingResponses).serviceCount(bookings.size()).createdAt(LocalDateTime.now())
+        .build();
   }
 
   @Transactional

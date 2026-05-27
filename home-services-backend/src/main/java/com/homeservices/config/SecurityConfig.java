@@ -52,6 +52,8 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/user/providers/*/reviews").permitAll()
                 // Cashfree calls this server-to-server — no JWT
                 .requestMatchers("/provider/subscription/webhook").permitAll()
+                // Public: frontend reads live subscription prices without login
+                .requestMatchers(HttpMethod.GET, "/admin/settings").permitAll()
 
                 // ── Admin ─────────────────────────────────────────────────────
                 .requestMatchers("/admin/**").hasRole("ADMIN")
