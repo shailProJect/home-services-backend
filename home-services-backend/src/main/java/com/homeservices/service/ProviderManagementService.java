@@ -1,5 +1,7 @@
 package com.homeservices.service;
 
+import com.homeservices.repository.PushSubscriptionRepository;
+import com.homeservices.service.WebPushService;
 import com.homeservices.dto.request.AvailabilityRequest;
 import com.homeservices.dto.request.BookingStatusRequest;
 import com.homeservices.dto.request.ProviderProfileRequest;
@@ -36,6 +38,8 @@ public class ProviderManagementService {
   private final ProviderMapper providerMapper;
   private final BookingMapper bookingMapper;
   private final CloudinaryService cloudinaryService;
+  private final PushSubscriptionRepository pushSubscriptionRepository;
+  private final WebPushService webPushService;
 
   // ── Services ──────────────────────────────────────────────────────────────
 
@@ -214,7 +218,34 @@ public class ProviderManagementService {
       throw new BadRequestException("Booking is already CONFIRMED");
 
     booking.setStatus(newStatus);
-    return bookingMapper.toBookingResponse(bookingRepository.save(booking));
+    if (newStatus == BookingStatus.CONFIRMED) {
+      booking.setAcceptedAt(java.time.LocalDateTime.now());
+    }
+    Booking saved = bookingRepository.save(booking);
+
+    // Real-time push notification to user on status change
+    try {
+      var userSubs = pushSubscriptionRepository.findByUserId(booking.getUser().getId());
+      String title, body;
+      if (newStatus == BookingStatus.CONFIRMED) {
+        title = "Booking Confirmed ✅";
+        body = "Your booking for " + booking.getProviderService().getServiceName()
+            + " has been confirmed by " + booking.getProviderService().getProvider().getUser().getName() + "!";
+      } else if (newStatus == BookingStatus.REJECTED) {
+        title = "Booking Rejected ❌";
+        body = "Unfortunately, your booking for " + booking.getProviderService().getServiceName() + " was rejected.";
+      } else {
+        title = "Booking Completed 🎉";
+        body = "Your " + booking.getProviderService().getServiceName() + " service is complete!";
+      }
+      for (var sub : userSubs) {
+        webPushService.sendNotification(sub, title, body);
+      }
+    } catch (Exception e) {
+      // Non-blocking
+    }
+
+    return bookingMapper.toBookingResponse(saved);
   }
 
   // ── Documents ─────────────────────────────────────────────────────────────

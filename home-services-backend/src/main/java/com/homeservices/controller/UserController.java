@@ -175,6 +175,16 @@ public class UserController {
   }
 
   /**
+   * PUT /user/bookings/{id}/cancel — Cancel a booking (user-initiated).
+   * Only PENDING or CONFIRMED bookings can be cancelled.
+   */
+  @PutMapping("/bookings/{id}/cancel")
+  public ResponseEntity<ApiResponse<BookingResponse>> cancelBooking(@PathVariable UUID id) {
+    BookingResponse response = userService.cancelBooking(securityUtil.getCurrentUserId(), id);
+    return ResponseEntity.ok(ApiResponse.success(response, "Booking cancelled successfully"));
+  }
+
+  /**
    * POST /user/reviews Submit a review for a provider.
    */
   @PostMapping("/reviews")

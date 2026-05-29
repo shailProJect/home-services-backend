@@ -28,6 +28,7 @@ import com.homeservices.entity.ProviderService;
 import com.homeservices.entity.PushSubscription;
 import com.homeservices.entity.Review;
 import com.homeservices.entity.User;
+import com.homeservices.entity.enums.BookingStatus;
 import com.homeservices.exception.BadRequestException;
 import com.homeservices.exception.ResourceNotFoundException;
 import com.homeservices.mapper.BookingMapper;
@@ -204,6 +205,25 @@ public class UserService {
       throw new BadRequestException("This provider is currently not accepting bookings");
     }
 
+    // ── Duplicate / overlapping time-slot check ──────────────────────────────
+    // Reject if the same provider already has a PENDING or CONFIRMED booking
+    // that overlaps with the requested [startTime, endTime) on the same date.
+    boolean slotTaken = bookingRepository
+        .existsByProviderService_Provider_IdAndBookingDateAndStatusInAndStartTimeLessThanAndEndTimeGreaterThan(
+            providerService.getProvider().getId(),
+            request.getBookingDate(),
+            java.util.List.of(
+                com.homeservices.entity.enums.BookingStatus.PENDING,
+                com.homeservices.entity.enums.BookingStatus.CONFIRMED),
+            request.getEndTime(),   // existing.startTime < newEndTime
+            request.getStartTime()  // existing.endTime   > newStartTime
+        );
+    if (slotTaken) {
+      throw new BadRequestException(
+          "This provider is already booked for the selected time slot. Please choose a different time.");
+    }
+    // ─────────────────────────────────────────────────────────────────────────
+
     Booking booking = Booking.builder().user(user).providerService(providerService)
         .bookingDate(request.getBookingDate()).startTime(request.getStartTime())
         .endTime(request.getEndTime()).address(request.getAddress()).build();
@@ -220,8 +240,8 @@ public class UserService {
 
       for (var subscription : userSubscriptions) {
 
-        webPushService.sendNotification(subscription, "Booking Confirmed ✅",
-            "Your booking for " + providerService.getServiceName() + " has been confirmed");
+        webPushService.sendNotification(subscription, "Booking Received ✅",
+            "Your booking for " + providerService.getServiceName() + " has been placed. Waiting for provider to confirm.");
       }
 
     } catch (Exception e) {
@@ -257,7 +277,45 @@ public class UserService {
         .toList();
   }
 
-  // ── Reviews ────────────────────────────────────────────────────────────────
+  // ── Cancel Booking ─────────────────────────────────────────────────────────
+
+  @Transactional
+  public BookingResponse cancelBooking(UUID userId, UUID bookingId) {
+    Booking booking = bookingRepository.findById(bookingId)
+        .orElseThrow(() -> new ResourceNotFoundException("Booking not found"));
+
+    if (!booking.getUser().getId().equals(userId)) {
+      throw new BadRequestException("You do not have permission to cancel this booking");
+    }
+
+    BookingStatus current = booking.getStatus();
+    if (current == BookingStatus.COMPLETED || current == BookingStatus.REJECTED
+        || current == BookingStatus.CANCELLED) {
+      throw new BadRequestException("Cannot cancel a booking that is already " + current);
+    }
+    if (current == BookingStatus.IN_PROGRESS || current == BookingStatus.ARRIVED
+        || current == BookingStatus.PROVIDER_EN_ROUTE) {
+      throw new BadRequestException("Cannot cancel a booking that is already in progress. Please contact the provider.");
+    }
+
+    booking.setStatus(BookingStatus.CANCELLED);
+    bookingRepository.save(booking);
+
+    // Notify provider about cancellation
+    try {
+      var providerSubs = pushSubscriptionRepository.findByProviderId(
+          booking.getProviderService().getProvider().getId());
+      for (var sub : providerSubs) {
+        webPushService.sendNotification(sub, "Booking Cancelled ❌",
+            booking.getUser().getName() + " cancelled their booking for "
+                + booking.getProviderService().getServiceName());
+      }
+    } catch (Exception e) {
+      e.printStackTrace();
+    }
+
+    return bookingMapper.toBookingResponse(booking);
+  }
 
   @Transactional
   public ReviewResponse addReview(UUID userId, ReviewRequest request) {
