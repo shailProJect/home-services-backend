@@ -16,33 +16,30 @@ import java.util.UUID;
 @Builder
 public class SupportMessage {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
-    private UUID id;
+  @Id
+  @GeneratedValue(strategy = GenerationType.UUID)
+  private UUID id;
 
-    /** The user this thread belongs to (always the USER side of the conversation). */
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", nullable = false)
-    private User user;
+  @ManyToOne(fetch = FetchType.LAZY)
+  @JoinColumn(name = "user_id", nullable = false)
+  private User user;
 
-    @Column(nullable = false, columnDefinition = "TEXT")
-    private String content;
+  @Column(nullable = false, columnDefinition = "TEXT")
+  private String content;
 
-    /** Who sent this message: USER or ADMIN */
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
-    private SenderRole senderRole;
+  @Enumerated(EnumType.STRING)
+  @Column(name = "sender_role", nullable = false)
+  private SenderRole senderRole;
 
-    /** True once the other party has fetched/seen this message. */
-    @Column(nullable = false)
-    @Builder.Default
-    private boolean read = false;
+  @Column(name = "is_read", nullable = false)
+  @Builder.Default
+  private boolean read = false;
 
-    @CreationTimestamp
-    @Column(updatable = false)
-    private LocalDateTime createdAt;
+  @CreationTimestamp
+  @Column(name = "created_at", updatable = false)
+  private LocalDateTime createdAt;
 
-    public enum SenderRole {
-        USER, ADMIN
-    }
+  public enum SenderRole {
+    USER, ADMIN
+  }
 }
